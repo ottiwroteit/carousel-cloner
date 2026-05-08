@@ -1,6 +1,6 @@
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
-import { generateOpenAIImages } from "@/lib/generator/openai-images";
+import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
 import { generateSlideImages } from "@/lib/generator/slides";
 import {
   DEFAULT_JOBS_ROOT,
@@ -100,16 +100,19 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
 
   const generated = buildLocalPackage();
   if (process.env.OPENAI_API_KEY) {
+    const imageConfig = getOpenAIImageConfig();
     generated.generatedImages = await generateOpenAIImages({
       jobDir: snapshot.dir,
-      prompts: generated.imagePrompts ?? generated.slideText
+      prompts: generated.imagePrompts ?? generated.slideText,
+      config: imageConfig
     });
     await writeJobArtifact(
       id,
       "image-generation.json",
       {
         provider: "openai",
-        model: "gpt-image-1",
+        model: imageConfig.model,
+        quality: imageConfig.quality,
         outputFormat: "png"
       },
       root

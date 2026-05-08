@@ -26,7 +26,7 @@ export default function Home() {
   const analysis = job?.artifacts["analysis.json"] as SourceAnalysis | undefined;
   const generated = job?.artifacts["package.json"] as GeneratedPackage | undefined;
   const imageGeneration = job?.artifacts["image-generation.json"] as
-    | { provider: "openai"; model: string; outputFormat: string }
+    | { provider: "openai"; model: string; quality: string; outputFormat: string }
     | { provider: "local-svg"; reason: string }
     | undefined;
 
@@ -179,7 +179,9 @@ export default function Home() {
               <p className="warningText">OpenAI image generation did not run: {imageGeneration.reason}</p>
             ) : null}
             {imageGeneration?.provider === "openai" ? (
-              <p className="successText">Generated with {imageGeneration.model}.</p>
+              <p className="successText">
+                Generated with {imageGeneration.model} at {imageGeneration.quality} quality.
+              </p>
             ) : null}
             <div className="imageGrid">
               {(generated.generatedImages ?? []).map((image, index) => {

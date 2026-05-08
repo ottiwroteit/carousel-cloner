@@ -17,20 +17,33 @@ describe("generateOpenAIImages", () => {
   test("writes base64 OpenAI image responses as png files", async () => {
     root = await mkdtemp(path.join(tmpdir(), "carousel-openai-images-"));
     const pngBytes = Buffer.from("fake png bytes");
+    const calls: unknown[] = [];
 
     const result = await generateOpenAIImages({
       jobDir: root,
       prompts: ["Create slide one", "Create slide two"],
+      config: {
+        model: "gpt-image-1-mini",
+        quality: "low"
+      },
       client: {
         images: {
-          generate: async () => ({
-            data: [{ b64_json: pngBytes.toString("base64") }]
-          })
+          generate: async (params) => {
+            calls.push(params);
+            return {
+              data: [{ b64_json: pngBytes.toString("base64") }]
+            };
+          }
         }
       }
     });
 
     expect(result).toEqual(["generated/slide-01.png", "generated/slide-02.png"]);
+    expect(calls[0]).toMatchObject({
+      model: "gpt-image-1-mini",
+      quality: "low",
+      size: "1024x1536"
+    });
     await expect(readFile(path.join(root, result[0]))).resolves.toEqual(pngBytes);
   });
 });

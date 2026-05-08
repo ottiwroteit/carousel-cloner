@@ -30,10 +30,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
 OPENAI_API_KEY=your_key_here
+OPENAI_IMAGE_MODEL=gpt-image-1-mini
+OPENAI_IMAGE_QUALITY=medium
 TIKTOK_COOKIES_FILE=/absolute/path/to/cookies.txt
 ```
 
-`OPENAI_API_KEY` enables real ChatGPT/OpenAI image generation through `gpt-image-1`. Without it, the app clearly marks image generation as skipped and uses local SVG placeholders so the handoff flow can still be tested.
+`OPENAI_API_KEY` enables real ChatGPT/OpenAI image generation. Without it, the app clearly marks image generation as skipped and uses local SVG placeholders so the handoff flow can still be tested.
+
+`OPENAI_IMAGE_MODEL` controls image cost. Supported values:
+
+- `gpt-image-1-mini` cheaper default
+- `gpt-image-1` higher quality, higher cost
+
+`OPENAI_IMAGE_QUALITY` supports `low`, `medium`, `high`, or `auto`. The default is `medium`.
 
 `TIKTOK_COOKIES_FILE` is passed to `yt-dlp` when set. It can help with URLs that need an authenticated TikTok session.
 

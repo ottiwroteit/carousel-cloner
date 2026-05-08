@@ -11,20 +11,29 @@ type ImageGenerateResponse = {
 type ImageClient = {
   images: {
     generate: (params: {
-      model: "gpt-image-1";
+      model: OpenAIImageModel;
       prompt: string;
       size: "1024x1536";
-      quality: "low" | "medium" | "high" | "auto";
+      quality: OpenAIImageQuality;
       output_format: "png";
       n: 1;
     }) => Promise<ImageGenerateResponse>;
   };
 };
 
+export type OpenAIImageModel = "gpt-image-1-mini" | "gpt-image-1";
+export type OpenAIImageQuality = "low" | "medium" | "high" | "auto";
+
+export type OpenAIImageConfig = {
+  model: OpenAIImageModel;
+  quality: OpenAIImageQuality;
+};
+
 type GenerateOpenAIImagesOptions = {
   jobDir: string;
   prompts: string[];
   apiKey?: string;
+  config?: OpenAIImageConfig;
   client?: ImageClient;
 };
 
@@ -36,10 +45,34 @@ function createClient(apiKey?: string): ImageClient {
   return new OpenAI({ apiKey }) as ImageClient;
 }
 
+function parseImageModel(value: string | undefined): OpenAIImageModel {
+  if (value === "gpt-image-1") {
+    return value;
+  }
+
+  return "gpt-image-1-mini";
+}
+
+function parseImageQuality(value: string | undefined): OpenAIImageQuality {
+  if (value === "low" || value === "high" || value === "auto") {
+    return value;
+  }
+
+  return "medium";
+}
+
+export function getOpenAIImageConfig(env = process.env): OpenAIImageConfig {
+  return {
+    model: parseImageModel(env.OPENAI_IMAGE_MODEL),
+    quality: parseImageQuality(env.OPENAI_IMAGE_QUALITY)
+  };
+}
+
 export async function generateOpenAIImages({
   jobDir,
   prompts,
   apiKey = process.env.OPENAI_API_KEY,
+  config = getOpenAIImageConfig(),
   client
 }: GenerateOpenAIImagesOptions): Promise<string[]> {
   const generatedDir = path.join(jobDir, "generated");
@@ -50,10 +83,10 @@ export async function generateOpenAIImages({
 
   for (const [index, prompt] of prompts.entries()) {
     const response = await imageClient.images.generate({
-      model: "gpt-image-1",
+      model: config.model,
       prompt,
       size: "1024x1536",
-      quality: "medium",
+      quality: config.quality,
       output_format: "png",
       n: 1
     });
