@@ -15,19 +15,8 @@ const defaultProfile: StyleProfile = {
   ctaStyle: "Ask what they would automate next."
 };
 
-function splitLines(value: string): string[] {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [accountName, setAccountName] = useState(defaultProfile.accountName);
-  const [tone, setTone] = useState(defaultProfile.tone);
-  const [imageStyle, setImageStyle] = useState(defaultProfile.imageStyle);
-  const [topics, setTopics] = useState(defaultProfile.topics.join("\n"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [job, setJob] = useState<JobSnapshot | null>(null);
@@ -49,21 +38,13 @@ export default function Home() {
     setError("");
     setCopied(false);
 
-    const profile: StyleProfile = {
-      ...defaultProfile,
-      accountName,
-      tone,
-      imageStyle,
-      topics: splitLines(topics)
-    };
-
     try {
       const response = await fetch("/api/jobs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ url, profile })
+        body: JSON.stringify({ url, profile: defaultProfile })
       });
       const payload = (await response.json()) as JobSnapshot | { error: string };
 
@@ -120,27 +101,6 @@ export default function Home() {
               onChange={(event) => setUrl(event.target.value)}
               placeholder="https://www.tiktok.com/@creator/video/..."
             />
-          </label>
-
-          <div className="two">
-            <label>
-              Account
-              <input value={accountName} onChange={(event) => setAccountName(event.target.value)} />
-            </label>
-            <label>
-              Tone
-              <input value={tone} onChange={(event) => setTone(event.target.value)} />
-            </label>
-          </div>
-
-          <label>
-            Topics
-            <textarea value={topics} onChange={(event) => setTopics(event.target.value)} rows={4} />
-          </label>
-
-          <label>
-            Image style
-            <textarea value={imageStyle} onChange={(event) => setImageStyle(event.target.value)} rows={4} />
           </label>
 
           <button disabled={busy || !url.trim()}>{busy ? "Processing..." : "Generate carousel package"}</button>
