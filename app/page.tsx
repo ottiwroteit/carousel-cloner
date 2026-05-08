@@ -25,6 +25,10 @@ export default function Home() {
 
   const analysis = job?.artifacts["analysis.json"] as SourceAnalysis | undefined;
   const generated = job?.artifacts["package.json"] as GeneratedPackage | undefined;
+  const imageGeneration = job?.artifacts["image-generation.json"] as
+    | { provider: "openai"; model: string; outputFormat: string }
+    | { provider: "local-svg"; reason: string }
+    | undefined;
 
   const captionsUrl = useMemo(() => (job ? `/api/jobs/${job.status.id}/captions` : ""), [job]);
   const phoneUrl = useMemo(() => (job ? `/jobs/${job.status.id}/phone` : ""), [job]);
@@ -171,15 +175,22 @@ export default function Home() {
 
           <article className="panel">
             <h2>Generated Images</h2>
+            {imageGeneration?.provider === "local-svg" ? (
+              <p className="warningText">OpenAI image generation did not run: {imageGeneration.reason}</p>
+            ) : null}
+            {imageGeneration?.provider === "openai" ? (
+              <p className="successText">Generated with {imageGeneration.model}.</p>
+            ) : null}
             <div className="imageGrid">
               {(generated.generatedImages ?? []).map((image, index) => {
                 const imageUrl = `/api/jobs/${job.status.id}/files/${image}`;
+                const extension = image.split(".").at(-1) ?? "png";
                 return (
                   <figure key={image} className="imageCard">
                     <img src={imageUrl} alt={`Generated carousel slide ${index + 1}`} />
                     <figcaption>
                       Slide {index + 1}
-                      <a href={imageUrl} download={`slide-${String(index + 1).padStart(2, "0")}.svg`}>
+                      <a href={imageUrl} download={`slide-${String(index + 1).padStart(2, "0")}.${extension}`}>
                         Save image
                       </a>
                     </figcaption>

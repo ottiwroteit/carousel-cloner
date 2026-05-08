@@ -1,5 +1,6 @@
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
+import { generateOpenAIImages } from "@/lib/generator/openai-images";
 import { generateSlideImages } from "@/lib/generator/slides";
 import {
   DEFAULT_JOBS_ROOT,
@@ -98,7 +99,33 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const generated = buildLocalPackage();
-  generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+  if (process.env.OPENAI_API_KEY) {
+    generated.generatedImages = await generateOpenAIImages({
+      jobDir: snapshot.dir,
+      prompts: generated.imagePrompts ?? generated.slideText
+    });
+    await writeJobArtifact(
+      id,
+      "image-generation.json",
+      {
+        provider: "openai",
+        model: "gpt-image-1",
+        outputFormat: "png"
+      },
+      root
+    );
+  } else {
+    generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+    await writeJobArtifact(
+      id,
+      "image-generation.json",
+      {
+        provider: "local-svg",
+        reason: "OPENAI_API_KEY is not set."
+      },
+      root
+    );
+  }
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);
 

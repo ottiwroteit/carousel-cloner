@@ -59,6 +59,10 @@ describe("processJob", () => {
         "generated/slide-05.svg"
       ]
     });
+    expect(readBack.artifacts["image-generation.json"]).toMatchObject({
+      provider: "local-svg",
+      reason: "OPENAI_API_KEY is not set."
+    });
     expect(captions).toContain("Main caption:");
     expect(captions).toContain("# Local draft carousel");
   });

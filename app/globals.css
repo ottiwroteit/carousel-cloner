@@ -244,6 +244,25 @@ dd {
   line-height: 1.55;
 }
 
+.warningText,
+.successText {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
+.warningText {
+  color: #ffd166;
+  background: #191505;
+}
+
+.successText {
+  color: var(--accent);
+  background: #071711;
+}
+
 .handoffPanel {
   display: grid;
   align-content: start;

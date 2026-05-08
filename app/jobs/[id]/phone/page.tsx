@@ -37,10 +37,11 @@ export default async function PhonePage({ params }: PhonePageProps) {
         <section className="phoneImageStack">
           {images.map((image, index) => {
             const url = `/api/jobs/${id}/files/${image}`;
+            const extension = image.split(".").at(-1) ?? "png";
             return (
               <article className="phoneImageCard" key={image}>
                 <img src={url} alt={`Generated carousel slide ${index + 1}`} />
-                <a href={url} download={`slide-${String(index + 1).padStart(2, "0")}.svg`}>
+                <a href={url} download={`slide-${String(index + 1).padStart(2, "0")}.${extension}`}>
                   Save image {index + 1}
                 </a>
               </article>
