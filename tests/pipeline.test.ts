@@ -7,7 +7,7 @@ import { processJob } from "@/lib/generator/pipeline";
 import type { StyleProfile } from "@/lib/types";
 
 const profile: StyleProfile = {
-  accountName: "Otti",
+  accountName: "Carousel Cloner",
   targetAudience: "founders posting daily",
   topics: ["automation", "AI workflows"],
   tone: "direct and useful",
@@ -50,7 +50,7 @@ describe("processJob", () => {
       hook: "Direct TikTok extraction was blocked"
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
-      title: "Local draft carousel for Otti",
+      title: "Local draft carousel",
       generatedImages: [
         "generated/slide-01.svg",
         "generated/slide-02.svg",
@@ -60,6 +60,6 @@ describe("processJob", () => {
       ]
     });
     expect(captions).toContain("Main caption:");
-    expect(captions).toContain("# Local draft carousel for Otti");
+    expect(captions).toContain("# Local draft carousel");
   });
 });

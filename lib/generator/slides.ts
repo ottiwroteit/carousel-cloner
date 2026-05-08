@@ -62,7 +62,7 @@ export function renderSlideSvg({ index, total, title, profile }: RenderSlideOpti
   <circle cx="900" cy="180" r="42" class="accent"/>
   <circle cx="820" cy="180" r="18" class="blue"/>
   <rect x="84" y="132" width="380" height="18" rx="9" class="accent"/>
-  <text x="84" y="218" class="muted">${escapeXml(profile.accountName)} / ${index}/${total}</text>
+  <text x="84" y="218" class="muted">Slide ${index}/${total}</text>
   ${lineMarkup}
   <rect x="84" y="1030" width="912" height="132" rx="28" fill="#151924" stroke="#293040" stroke-width="2"/>
   <text x="122" y="1090" class="small">${escapeXml(profile.tone)}</text>

@@ -6,7 +6,7 @@ import { generateSlideImages, renderSlideSvg } from "@/lib/generator/slides";
 import type { GeneratedPackage, StyleProfile } from "@/lib/types";
 
 const profile: StyleProfile = {
-  accountName: "Otti",
+  accountName: "Carousel Cloner",
   targetAudience: "founders",
   topics: ["automation"],
   tone: "direct",
@@ -17,7 +17,7 @@ const profile: StyleProfile = {
 };
 
 const pkg: GeneratedPackage = {
-  title: "Local draft carousel for Otti",
+  title: "Local draft carousel",
   mainCaption: "Caption",
   alternateHooks: [],
   hashtags: [],

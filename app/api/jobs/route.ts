@@ -5,7 +5,7 @@ import type { StyleProfile } from "@/lib/types";
 import { validateTikTokUrl } from "@/lib/url";
 
 const defaultProfile: StyleProfile = {
-  accountName: "My Account",
+  accountName: "Carousel Cloner",
   targetAudience: "creators and operators",
   topics: ["automation", "content systems"],
   tone: "direct, useful, and specific",

@@ -5,7 +5,7 @@ import type { JobSnapshot } from "@/lib/jobs/store";
 import type { GeneratedPackage, SourceAnalysis, StyleProfile } from "@/lib/types";
 
 const defaultProfile: StyleProfile = {
-  accountName: "Otti",
+  accountName: "Carousel Cloner",
   targetAudience: "founders, creators, and operators building with AI",
   topics: ["automation", "content systems", "AI workflows"],
   tone: "direct, practical, slightly punchy",

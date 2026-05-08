@@ -27,9 +27,9 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
   };
 }
 
-function buildLocalPackage(accountName: string): GeneratedPackage {
+function buildLocalPackage(): GeneratedPackage {
   return {
-    title: `Local draft carousel for ${accountName}`,
+    title: "Local draft carousel",
     mainCaption:
       "You do not need to reinvent every carousel. Start by studying the structure that is already working, then rebuild the idea in your own voice and visual system.",
     alternateHooks: [
@@ -97,7 +97,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
 
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
-  const generated = buildLocalPackage(snapshot.input.profile.accountName);
+  const generated = buildLocalPackage();
   generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);

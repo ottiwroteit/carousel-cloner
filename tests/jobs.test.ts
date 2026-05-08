@@ -6,7 +6,7 @@ import { createJob, readJob, updateJobStatus, writeJobArtifact } from "@/lib/job
 import type { StyleProfile } from "@/lib/types";
 
 const profile: StyleProfile = {
-  accountName: "Otti",
+  accountName: "Carousel Cloner",
   targetAudience: "solo creators",
   topics: ["automation", "content systems"],
   tone: "sharp and useful",
