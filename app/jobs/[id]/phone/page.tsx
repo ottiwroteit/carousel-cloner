@@ -18,6 +18,9 @@ export default async function PhonePage({ params }: PhonePageProps) {
 
     return (
       <main className="phonePage">
+        <Link className="backLink" href="/">
+          Back to dashboard
+        </Link>
         <section className="phoneHero">
           <p className="eyebrow">Phone handoff</p>
           <h1>{pkg.title}</h1>
