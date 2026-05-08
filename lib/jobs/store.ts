@@ -19,6 +19,10 @@ function jobDir(id: string, root = DEFAULT_JOBS_ROOT): string {
   return path.join(root, id);
 }
 
+export function getJobDir(id: string, root = DEFAULT_JOBS_ROOT): string {
+  return jobDir(id, root);
+}
+
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
@@ -79,6 +83,14 @@ export async function writeJobTextArtifact(id: string, filename: string, value: 
 
 export async function readJobTextArtifact(id: string, filename: string, root = DEFAULT_JOBS_ROOT): Promise<string> {
   return readFile(path.join(jobDir(id, root), filename), "utf8");
+}
+
+export async function readJobFile(id: string, relativePath: string, root = DEFAULT_JOBS_ROOT): Promise<Buffer> {
+  if (relativePath.split(/[\\/]/).includes("..")) {
+    throw new Error("Invalid job file path.");
+  }
+
+  return readFile(path.join(jobDir(id, root), relativePath));
 }
 
 export async function readJob(id: string, root = DEFAULT_JOBS_ROOT): Promise<JobSnapshot> {

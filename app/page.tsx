@@ -32,11 +32,17 @@ export default function Home() {
   const [error, setError] = useState("");
   const [job, setJob] = useState<JobSnapshot | null>(null);
   const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
 
   const analysis = job?.artifacts["analysis.json"] as SourceAnalysis | undefined;
   const generated = job?.artifacts["package.json"] as GeneratedPackage | undefined;
 
   const captionsUrl = useMemo(() => (job ? `/api/jobs/${job.status.id}/captions` : ""), [job]);
+  const phoneUrl = useMemo(() => (job ? `/jobs/${job.status.id}/phone` : ""), [job]);
+  const qrUrl = useMemo(
+    () => (job ? `/api/jobs/${job.status.id}/qr?origin=${encodeURIComponent(origin)}` : ""),
+    [job, origin]
+  );
 
   async function createJob() {
     setBusy(true);
@@ -66,6 +72,7 @@ export default function Home() {
       }
 
       setJob(payload as JobSnapshot);
+      setOrigin(window.location.origin);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong.");
     } finally {
@@ -182,6 +189,44 @@ export default function Home() {
                 <li key={slide}>{slide}</li>
               ))}
             </ol>
+          </article>
+        </section>
+      ) : null}
+
+      {job && generated ? (
+        <section className="handoffGrid">
+          <article className="panel handoffPanel">
+            <div>
+              <h2>Phone Handoff</h2>
+              <p className="mutedText">Scan this on your phone, save the images, copy the caption, and post natively.</p>
+            </div>
+            <img className="qrCode" src={qrUrl} alt="QR code for phone handoff page" />
+            <div className="actions wrap">
+              <a href={phoneUrl} target="_blank">
+                Open phone page
+              </a>
+              <a href={`/api/jobs/${job.status.id}/images`}>Download all images</a>
+            </div>
+          </article>
+
+          <article className="panel">
+            <h2>Generated Images</h2>
+            <div className="imageGrid">
+              {(generated.generatedImages ?? []).map((image, index) => {
+                const imageUrl = `/api/jobs/${job.status.id}/files/${image}`;
+                return (
+                  <figure key={image} className="imageCard">
+                    <img src={imageUrl} alt={`Generated carousel slide ${index + 1}`} />
+                    <figcaption>
+                      Slide {index + 1}
+                      <a href={imageUrl} download={`slide-${String(index + 1).padStart(2, "0")}.svg`}>
+                        Save image
+                      </a>
+                    </figcaption>
+                  </figure>
+                );
+              })}
+            </div>
           </article>
         </section>
       ) : null}

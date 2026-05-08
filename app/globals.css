@@ -96,7 +96,8 @@ h2 {
 }
 
 .grid,
-.lowerGrid {
+.lowerGrid,
+.handoffGrid {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   gap: 16px;
@@ -186,6 +187,10 @@ button:disabled,
   gap: 8px;
 }
 
+.actions.wrap {
+  flex-wrap: wrap;
+}
+
 .actions a {
   display: inline-flex;
   align-items: center;
@@ -233,11 +238,127 @@ dd {
   line-height: 1.65;
 }
 
+.mutedText {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.handoffPanel {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.qrCode {
+  width: min(100%, 260px);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.imageCard {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #080a0f;
+}
+
+.imageCard img,
+.phoneImageCard img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.imageCard figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.imageCard a,
+.phoneImageCard a {
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.phonePage {
+  width: min(680px, calc(100vw - 24px));
+  margin: 0 auto;
+  padding: 24px 0 56px;
+}
+
+.phoneHero {
+  padding: 12px 0 18px;
+}
+
+.phoneHero h1 {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.phoneActions {
+  position: sticky;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.phoneActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.phoneImageStack {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.phoneImageCard {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.phoneImageCard a {
+  display: block;
+  padding: 14px;
+}
+
 @media (max-width: 820px) {
   .masthead,
   .grid,
   .lowerGrid,
+  .handoffGrid,
   .two {
+    grid-template-columns: 1fr;
+  }
+
+  .phoneActions {
     grid-template-columns: 1fr;
   }
 

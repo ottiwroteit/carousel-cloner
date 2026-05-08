@@ -1,5 +1,6 @@
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
+import { generateSlideImages } from "@/lib/generator/slides";
 import {
   DEFAULT_JOBS_ROOT,
   readJob,
@@ -97,6 +98,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const generated = buildLocalPackage(snapshot.input.profile.accountName);
+  generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);
 

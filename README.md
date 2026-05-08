@@ -10,6 +10,9 @@ Local-first tool for turning a competitor TikTok slideshow URL into a new carous
 - Fall back to a useful local draft when TikTok blocks extraction.
 - Generate a caption package, alternate hooks, slide text, hashtags, posting notes, and image prompts.
 - Copy captions from the UI or download `captions.txt`.
+- Generate one local slide image per slide into the job folder.
+- Scan a QR code to open a phone handoff page.
+- Save individual images on your phone or download all images as a zip.
 
 This version does not auto-post, schedule content, or guarantee every TikTok slideshow can be extracted. TikTok frequently blocks direct extraction, so blocked URLs produce an actionable partial job instead of a dead end.
 
@@ -58,6 +61,17 @@ outputs/jobs/<job-id>
 ```
 
 Each job contains `input.json`, `status.json`, generated JSON artifacts, and `captions.txt`.
+
+Generated slide images are saved in:
+
+```bash
+outputs/jobs/<job-id>/generated
+```
+
+The dashboard also exposes:
+
+- `/jobs/<job-id>/phone` for phone handoff
+- `/api/jobs/<job-id>/images` for the image zip
 
 ## Scripts
 

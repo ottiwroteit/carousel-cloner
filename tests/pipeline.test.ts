@@ -50,7 +50,14 @@ describe("processJob", () => {
       hook: "Direct TikTok extraction was blocked"
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
-      title: "Local draft carousel for Otti"
+      title: "Local draft carousel for Otti",
+      generatedImages: [
+        "generated/slide-01.svg",
+        "generated/slide-02.svg",
+        "generated/slide-03.svg",
+        "generated/slide-04.svg",
+        "generated/slide-05.svg"
+      ]
     });
     expect(captions).toContain("Main caption:");
     expect(captions).toContain("# Local draft carousel for Otti");
