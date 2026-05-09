@@ -2,10 +2,10 @@ import { describe, expect, test } from "vitest";
 import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
 
 describe("buildTrendPackage", () => {
-  test("creates the storefront, product, and BARE screenshot cadence", () => {
-    const pkg = buildTrendPackage();
+  test("creates a randomized hero, product, and BARE screenshot cadence", () => {
+    const pkg = buildTrendPackage({ now: new Date("2026-01-15T12:00:00Z"), random: () => 0 });
 
-    expect(pkg.title).toBe("Non-toxic Trader Joe's snacks");
+    expect(pkg.title).toBe("Things I always buy at Trader Joe's");
     expect(pkg.imagePrompts).toHaveLength(4);
     expect(pkg.carouselSlides?.map((slide) => slide.kind)).toEqual([
       "storefront-hook",
@@ -16,14 +16,26 @@ describe("buildTrendPackage", () => {
       "product-photo",
       "bare-screenshot"
     ]);
-    expect(pkg.imagePrompts?.[0]).toContain('says exactly: "NON-TOXIC Trader Joe\'s snacks');
-    expect(pkg.imagePrompts?.[0]).toContain("Do not include emojis");
+    expect(pkg.imagePrompts?.[0]).toContain('says exactly: "Things I always buy at Trader Joe\'s"');
+    expect(pkg.imagePrompts?.[0]).toContain("No emojis in the text");
     expect(pkg.slideText.join("\n")).not.toMatch(/\p{Emoji_Presentation}/u);
     expect(pkg.imagePrompts?.[1]).toContain('"Kettle Cooked Olive Oil Potato Chips"');
   });
 
+  test("can create benefit hooks without a named store", () => {
+    const values = [0.6, 0, 0, 0, 0, 0, 0];
+    const pkg = buildTrendPackage({
+      now: new Date("2026-06-10T12:00:00Z"),
+      random: () => values.shift() ?? 0
+    });
+
+    expect(pkg.title).toBe("Snacks with no artificial dyes");
+    expect(pkg.carouselSlides?.[0].storeName).toBeUndefined();
+    expect(pkg.imagePrompts?.[0]).toContain("no specific store branding");
+  });
+
   test("attaches generated images only to generated-photo slides", () => {
-    const pkg = attachGeneratedImagesToSlides(buildTrendPackage(), [
+    const pkg = attachGeneratedImagesToSlides(buildTrendPackage({ now: new Date("2026-01-15T12:00:00Z"), random: () => 0 }), [
       "generated/slide-01.png",
       "generated/slide-02.png",
       "generated/slide-03.png",

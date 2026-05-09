@@ -11,7 +11,7 @@ const defaultProfile: StyleProfile = {
   tone: "direct, useful, and specific",
   captionRules: "Write short paragraphs with one clear CTA.",
   imageStyle: "clean vertical carousel slides with crisp UI details",
-  bannedElements: ["generic hype", "fake results"],
+  bannedElements: [],
   ctaStyle: "soft practical question"
 };
 

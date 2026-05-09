@@ -50,7 +50,6 @@ describe("processJob", () => {
       hook: "Direct TikTok extraction was blocked"
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
-      title: "Non-toxic Trader Joe's snacks",
       generatedImages: [
         "generated/slide-01.svg",
         "generated/slide-02.svg",
@@ -69,10 +68,9 @@ describe("processJob", () => {
     ]);
     expect(readBack.artifacts["image-generation.json"]).toMatchObject({
       provider: "local-svg",
-      reason: "OPENAI_API_KEY is not set."
+      reason: "Local image mode is enabled."
     });
     expect(captions).toContain("Main caption:");
-    expect(captions).toContain("# Non-toxic Trader Joe's snacks");
   });
 
   test("falls back to local images when OpenAI image generation fails", async () => {
@@ -82,6 +80,7 @@ describe("processJob", () => {
     const snapshot = await processJob(job.status.id, {
       root,
       hasOpenAIKey: true,
+      useOpenAIImages: true,
       extract: async () => ({
         ok: false,
         error: {

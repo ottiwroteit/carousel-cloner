@@ -27,6 +27,7 @@ export type OpenAIImageQuality = "low" | "medium" | "high" | "auto";
 export type OpenAIImageConfig = {
   model: OpenAIImageModel;
   quality: OpenAIImageQuality;
+  enabled: boolean;
 };
 
 type GenerateOpenAIImagesOptions = {
@@ -64,7 +65,8 @@ function parseImageQuality(value: string | undefined): OpenAIImageQuality {
 export function getOpenAIImageConfig(env = process.env): OpenAIImageConfig {
   return {
     model: parseImageModel(env.OPENAI_IMAGE_MODEL),
-    quality: parseImageQuality(env.OPENAI_IMAGE_QUALITY)
+    quality: parseImageQuality(env.OPENAI_IMAGE_QUALITY),
+    enabled: env.CAROUSEL_IMAGE_PROVIDER === "openai" || env.OPENAI_IMAGE_PROVIDER === "openai"
   };
 }
 

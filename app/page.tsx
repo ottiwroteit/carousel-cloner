@@ -11,7 +11,7 @@ const defaultProfile: StyleProfile = {
   tone: "direct, practical, slightly punchy",
   captionRules: "Short paragraphs. No fake urgency. Make the workflow feel immediately useful.",
   imageStyle: "clean vertical app screenshots, crisp interface details, high contrast, editorial tech feel",
-  bannedElements: ["generic motivational quotes", "fake income claims", "overcrowded text"],
+  bannedElements: [],
   ctaStyle: "Ask what they would automate next."
 };
 
@@ -84,8 +84,8 @@ export default function Home() {
           <p className="eyebrow">Local-first social automation</p>
           <h1>Carousel Cloner</h1>
           <p className="lede">
-            Paste a competitor TikTok slideshow URL, extract what we can, then generate a new caption package and slide
-            plan in your account style.
+            Paste a competitor TikTok slideshow URL, extract what we can, then generate a randomized grocery carousel
+            package you can hand off to your phone.
           </p>
         </div>
         <div className="statusPill">{job ? job.status.state : "ready"}</div>
@@ -178,7 +178,7 @@ export default function Home() {
           <article className="panel">
             <h2>Generated Photos</h2>
             {imageGeneration?.provider === "local-svg" ? (
-              <p className="warningText">OpenAI image generation did not run: {imageGeneration.reason}</p>
+              <p className="successText">Using local image mode: {imageGeneration.reason}</p>
             ) : null}
             {imageGeneration?.provider === "openai" ? (
               <p className="successText">

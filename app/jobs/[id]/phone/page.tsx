@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { readJob, readJobTextArtifact } from "@/lib/jobs/store";
+import { getPhoneBaseUrl } from "@/lib/network";
 import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 type PhonePageProps = {
@@ -15,6 +17,10 @@ export default async function PhonePage({ params }: PhonePageProps) {
     const captions = await readJobTextArtifact(id, "captions.txt");
     const pkg = job.artifacts["package.json"] as GeneratedPackage;
     const slides = pkg.carouselSlides ?? [];
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host") ?? "localhost:3000";
+    const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
+    const phoneUrl = `${getPhoneBaseUrl(`${proto}://${host}`)}/jobs/${id}/phone`;
 
     return (
       <main className="phonePage">
@@ -32,7 +38,8 @@ export default async function PhonePage({ params }: PhonePageProps) {
             <h2>Scan to open this page</h2>
             <p className="mutedText">Use this from your computer when you want the package on your phone.</p>
           </div>
-          <img className="qrCode" src={`/api/jobs/${id}/qr`} alt="QR code for this phone handoff page" />
+          <img className="qrCode" src={`/api/jobs/${id}/qr?origin=${encodeURIComponent(`${proto}://${host}`)}`} alt="QR code for this phone handoff page" />
+          <a href={phoneUrl}>{phoneUrl}</a>
         </section>
 
         <section className="panel phoneActions">

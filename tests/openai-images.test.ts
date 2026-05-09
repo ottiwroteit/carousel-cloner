@@ -24,7 +24,8 @@ describe("generateOpenAIImages", () => {
       prompts: ["Create slide one", "Create slide two"],
       config: {
         model: "gpt-image-1-mini",
-        quality: "low"
+        quality: "low",
+        enabled: true
       },
       client: {
         images: {

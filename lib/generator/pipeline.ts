@@ -17,6 +17,7 @@ type ProcessJobOptions = {
   root?: string;
   extract?: (url: string, jobDir: string) => Promise<ExtractTikTokSourceResult>;
   hasOpenAIKey?: boolean;
+  useOpenAIImages?: boolean;
   generateOpenAIImages?: typeof generateOpenAIImages;
 };
 
@@ -24,8 +25,8 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
   return {
     summary: "Direct extraction did not return source slides, so this job uses the grocery-store trend cadence.",
     hook: reason.includes("blocked") ? "Direct TikTok extraction was blocked" : reason,
-    pacing: "Use the trend sequence: storefront hook, product-in-hand photo, BARE app screenshot, then repeat for each product.",
-    visualPattern: "Photorealistic vertical phone photos, not designed cards. First slide has hook overlay; product slides have no text.",
+    pacing: "Use the trend sequence: hero hook image, product-in-hand photo, BARE app screenshot, then repeat for each product.",
+    visualPattern: "Hero scenes can be storefront, aisle, cart, shelf, seasonal display, or family shopping POV. Product slides have no overlay text.",
     captionStrategy: "Frame the post as cleaner grocery finds worth saving before the next store trip.",
     whyItWorks: "It matches a TikTok-native shopping format: recognizable store context, real product proof, then BARE app validation."
   };
@@ -72,9 +73,10 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   let generated = buildTrendPackage();
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
   const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
+  const imageConfig = getOpenAIImageConfig();
+  const useOpenAIImages = options.useOpenAIImages ?? imageConfig.enabled;
 
-  if (hasOpenAIKey) {
-    const imageConfig = getOpenAIImageConfig();
+  if (useOpenAIImages && hasOpenAIKey) {
     try {
       const generatedImages = await openAIImageGenerator({
         jobDir: snapshot.dir,
@@ -115,7 +117,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       "image-generation.json",
       {
         provider: "local-svg",
-        reason: "OPENAI_API_KEY is not set."
+        reason: useOpenAIImages ? "OPENAI_API_KEY is not set." : "Local image mode is enabled."
       },
       root
     );
