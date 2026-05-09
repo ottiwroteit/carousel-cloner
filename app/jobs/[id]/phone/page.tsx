@@ -43,7 +43,7 @@ export default async function PhonePage({ params }: PhonePageProps) {
         </section>
 
         <section className="panel phoneActions">
-          <button type="button" data-copy-caption={captions} className="copyCaptionButton">
+          <button type="button" data-copy-caption-button className="copyCaptionButton">
             Copy caption
           </button>
           <Link href={`/api/jobs/${id}/images`}>Download all images</Link>
@@ -83,14 +83,33 @@ export default async function PhonePage({ params }: PhonePageProps) {
 
         <section className="panel">
           <h2>Caption</h2>
-          <pre className="captionBox">{captions}</pre>
+          <textarea className="captionBox captionCopyField" data-caption-field readOnly rows={16} defaultValue={captions} aria-label="Caption text" />
         </section>
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.querySelector('[data-copy-caption]')?.addEventListener('click', async (event) => {
+            __html: `document.querySelector('[data-copy-caption-button]')?.addEventListener('click', async (event) => {
   const button = event.currentTarget;
-  await navigator.clipboard.writeText(button.dataset.copyCaption || '');
-  button.textContent = 'Copied';
+  const field = document.querySelector('[data-caption-field]');
+  const text = field?.value || '';
+
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied';
+      return;
+    }
+    throw new Error('Clipboard API unavailable');
+  } catch {
+    if (field) {
+      field.focus({ preventScroll: true });
+      field.select();
+      field.setSelectionRange(0, text.length);
+      const copied = document.execCommand?.('copy');
+      button.textContent = copied ? 'Copied' : 'Caption selected';
+      return;
+    }
+    button.textContent = 'Copy caption below';
+  }
 });`
           }}
         />

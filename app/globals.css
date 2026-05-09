@@ -212,6 +212,12 @@ button:disabled,
   line-height: 1.55;
 }
 
+.captionCopyField {
+  display: block;
+  min-height: 420px;
+  resize: vertical;
+}
+
 .empty {
   color: var(--muted);
 }
