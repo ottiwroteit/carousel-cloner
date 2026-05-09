@@ -16,19 +16,25 @@ const defaultProfile: StyleProfile = {
 };
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<{ url: string; profile: StyleProfile }>;
-  const validation = validateTikTokUrl(body.url ?? "");
+  try {
+    const body = (await request.json()) as Partial<{ url: string; profile: StyleProfile }>;
+    const validation = validateTikTokUrl(body.url ?? "");
 
-  if (!validation.ok) {
-    return NextResponse.json({ error: validation.message }, { status: 400 });
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.message }, { status: 400 });
+    }
+
+    const job = await createJob({
+      url: validation.url,
+      profile: body.profile ?? defaultProfile
+    });
+
+    const snapshot = await processJob(job.status.id);
+
+    return NextResponse.json(snapshot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Job failed.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  const job = await createJob({
-    url: validation.url,
-    profile: body.profile ?? defaultProfile
-  });
-
-  const snapshot = await processJob(job.status.id);
-
-  return NextResponse.json(snapshot);
 }

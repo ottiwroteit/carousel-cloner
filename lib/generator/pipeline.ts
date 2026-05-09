@@ -15,6 +15,8 @@ import type { GeneratedPackage, SourceAnalysis } from "@/lib/types";
 type ProcessJobOptions = {
   root?: string;
   extract?: (url: string, jobDir: string) => Promise<ExtractTikTokSourceResult>;
+  hasOpenAIKey?: boolean;
+  generateOpenAIImages?: typeof generateOpenAIImages;
 };
 
 function buildFallbackAnalysis(reason: string): SourceAnalysis {
@@ -99,24 +101,41 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const generated = buildLocalPackage();
-  if (process.env.OPENAI_API_KEY) {
+  const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
+  const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
+
+  if (hasOpenAIKey) {
     const imageConfig = getOpenAIImageConfig();
-    generated.generatedImages = await generateOpenAIImages({
-      jobDir: snapshot.dir,
-      prompts: generated.imagePrompts ?? generated.slideText,
-      config: imageConfig
-    });
-    await writeJobArtifact(
-      id,
-      "image-generation.json",
-      {
-        provider: "openai",
-        model: imageConfig.model,
-        quality: imageConfig.quality,
-        outputFormat: "png"
-      },
-      root
-    );
+    try {
+      generated.generatedImages = await openAIImageGenerator({
+        jobDir: snapshot.dir,
+        prompts: generated.imagePrompts ?? generated.slideText,
+        config: imageConfig
+      });
+      await writeJobArtifact(
+        id,
+        "image-generation.json",
+        {
+          provider: "openai",
+          model: imageConfig.model,
+          quality: imageConfig.quality,
+          outputFormat: "png"
+        },
+        root
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+      await writeJobArtifact(
+        id,
+        "image-generation.json",
+        {
+          provider: "local-svg",
+          reason: `OpenAI image generation failed: ${message}`
+        },
+        root
+      );
+    }
   } else {
     generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
     await writeJobArtifact(

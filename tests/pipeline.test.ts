@@ -66,4 +66,41 @@ describe("processJob", () => {
     expect(captions).toContain("Main caption:");
     expect(captions).toContain("# Local draft carousel");
   });
+
+  test("falls back to local images when OpenAI image generation fails", async () => {
+    root = await mkdtemp(path.join(tmpdir(), "carousel-pipeline-"));
+    const job = await createJob({ url: "https://www.tiktok.com/@creator/video/1", profile }, root);
+
+    const snapshot = await processJob(job.status.id, {
+      root,
+      hasOpenAIKey: true,
+      extract: async () => ({
+        ok: false,
+        error: {
+          code: "blocked",
+          message: "TikTok blocked direct extraction for this URL."
+        }
+      }),
+      generateOpenAIImages: async () => {
+        throw new Error("Invalid image model");
+      }
+    });
+
+    const readBack = await readJob(job.status.id, root);
+
+    expect(snapshot.status.state).toBe("ready");
+    expect(readBack.artifacts["image-generation.json"]).toMatchObject({
+      provider: "local-svg",
+      reason: "OpenAI image generation failed: Invalid image model"
+    });
+    expect(readBack.artifacts["package.json"]).toMatchObject({
+      generatedImages: [
+        "generated/slide-01.svg",
+        "generated/slide-02.svg",
+        "generated/slide-03.svg",
+        "generated/slide-04.svg",
+        "generated/slide-05.svg"
+      ]
+    });
+  });
 });

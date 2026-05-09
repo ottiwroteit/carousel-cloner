@@ -50,7 +50,8 @@ export default function Home() {
         },
         body: JSON.stringify({ url, profile: defaultProfile })
       });
-      const payload = (await response.json()) as JobSnapshot | { error: string };
+      const text = await response.text();
+      const payload = text ? (JSON.parse(text) as JobSnapshot | { error: string }) : { error: "Server returned an empty response." };
 
       if (!response.ok) {
         throw new Error("error" in payload ? payload.error : "Job failed.");
