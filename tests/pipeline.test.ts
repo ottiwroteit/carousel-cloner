@@ -98,7 +98,7 @@ describe("processJob", () => {
     expect(snapshot.status.state).toBe("ready");
     expect(readBack.artifacts["image-generation.json"]).toMatchObject({
       provider: "local-svg",
-      reason: "OpenAI image generation failed: Invalid image model"
+      reason: "OpenAI/web image generation failed: Invalid image model"
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
       generatedImages: [

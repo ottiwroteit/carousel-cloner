@@ -27,6 +27,7 @@ export default function Home() {
   const generated = job?.artifacts["package.json"] as GeneratedPackage | undefined;
   const imageGeneration = job?.artifacts["image-generation.json"] as
     | { provider: "openai"; model: string; quality: string; outputFormat: string }
+    | { provider: "hybrid-web-openai"; model: string; quality: string; outputFormat: string; productSources: unknown[] }
     | { provider: "local-svg"; reason: string }
     | undefined;
 
@@ -183,6 +184,12 @@ export default function Home() {
             {imageGeneration?.provider === "openai" ? (
               <p className="successText">
                 Generated with {imageGeneration.model} at {imageGeneration.quality} quality.
+              </p>
+            ) : null}
+            {imageGeneration?.provider === "hybrid-web-openai" ? (
+              <p className="successText">
+                Generated hook with {imageGeneration.model}; sourced {imageGeneration.productSources.length} product image
+                {imageGeneration.productSources.length === 1 ? "" : "s"} from the web.
               </p>
             ) : null}
             <div className="imageGrid">

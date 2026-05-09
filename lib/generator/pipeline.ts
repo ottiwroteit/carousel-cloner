@@ -3,6 +3,7 @@ import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extra
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
 import { generateSlideImages } from "@/lib/generator/slides";
 import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
+import { findWebProductImage, type WebProductImage } from "@/lib/generator/web-product-images";
 import {
   DEFAULT_JOBS_ROOT,
   readJob,
@@ -19,7 +20,13 @@ type ProcessJobOptions = {
   hasOpenAIKey?: boolean;
   useOpenAIImages?: boolean;
   generateOpenAIImages?: typeof generateOpenAIImages;
+  findWebProductImage?: typeof findWebProductImage;
 };
+
+type ImageGenerationArtifact =
+  | { provider: "openai"; model: string; quality: string; outputFormat: string }
+  | { provider: "hybrid-web-openai"; model: string; quality: string; outputFormat: string; productSources: WebProductImage[] }
+  | { provider: "local-svg"; reason: string };
 
 function buildFallbackAnalysis(reason: string): SourceAnalysis {
   return {
@@ -73,28 +80,57 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   let generated = buildTrendPackage();
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
   const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
+  const webProductImageFinder = options.findWebProductImage ?? findWebProductImage;
   const imageConfig = getOpenAIImageConfig();
   const useOpenAIImages = options.useOpenAIImages ?? imageConfig.enabled;
 
   if (useOpenAIImages && hasOpenAIKey) {
     try {
-      const generatedImages = await openAIImageGenerator({
-        jobDir: snapshot.dir,
-        prompts: generated.imagePrompts ?? generated.slideText,
-        config: imageConfig
-      });
+      const generatedImages: string[] = [];
+      const productSources: WebProductImage[] = [];
+      const generatedSlides = (generated.carouselSlides ?? []).filter((slide) => slide.kind !== "bare-screenshot");
+      const heroPrompts = generatedSlides.filter((slide) => !slide.productName).flatMap((slide) => (slide.prompt ? [slide.prompt] : []));
+      const heroImages = heroPrompts.length
+        ? await openAIImageGenerator({
+            jobDir: snapshot.dir,
+            prompts: heroPrompts,
+            config: imageConfig
+          })
+        : [];
+      let heroIndex = 0;
+
+      for (const [index, slide] of generatedSlides.entries()) {
+        if (slide.productName) {
+          const productImage = await webProductImageFinder({
+            jobDir: snapshot.dir,
+            productName: slide.productName,
+            index
+          });
+          generatedImages.push(productImage.relativePath);
+          productSources.push(productImage);
+          continue;
+        }
+
+        generatedImages.push(heroImages[heroIndex]);
+        heroIndex += 1;
+      }
+
       generated = attachGeneratedImagesToSlides(generated, generatedImages);
-      await writeJobArtifact(
-        id,
-        "image-generation.json",
-        {
-          provider: "openai",
-          model: imageConfig.model,
-          quality: imageConfig.quality,
-          outputFormat: "png"
-        },
-        root
-      );
+      const artifact: ImageGenerationArtifact = productSources.length
+        ? {
+            provider: "hybrid-web-openai",
+            model: imageConfig.model,
+            quality: imageConfig.quality,
+            outputFormat: "png",
+            productSources
+          }
+        : {
+            provider: "openai",
+            model: imageConfig.model,
+            quality: imageConfig.quality,
+            outputFormat: "png"
+          };
+      await writeJobArtifact(id, "image-generation.json", artifact, root);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
@@ -104,7 +140,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
         "image-generation.json",
         {
           provider: "local-svg",
-          reason: `OpenAI image generation failed: ${message}`
+          reason: `OpenAI/web image generation failed: ${message}`
         },
         root
       );
@@ -122,6 +158,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       root
     );
   }
+
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);
 
