@@ -273,6 +273,11 @@ dd {
   gap: 16px;
 }
 
+.phoneQrPanel {
+  display: grid;
+  gap: 16px;
+}
+
 .qrCode {
   width: min(100%, 260px);
   border-radius: 8px;

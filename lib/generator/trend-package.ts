@@ -1,6 +1,7 @@
 import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 const STORE_NAME = "Trader Joe's";
+const HOOK_TEXT = "NON-TOXIC Trader Joe's snacks";
 
 const PRODUCTS = [
   {
@@ -18,7 +19,7 @@ const PRODUCTS = [
 ];
 
 function storefrontPrompt(): string {
-  return `Photorealistic vertical smartphone photo outside a Trader Joe's grocery store, shot from a low angle looking up at the storefront sign and sky, natural daylight, authentic TikTok slideshow style. Add a white rounded text sticker near the top that says exactly: "NON-TOXIC Trader Joe's snacks 🥨🥑🧀". Make it look like a real phone photo, not a designed graphic.`;
+  return `Photorealistic vertical smartphone photo outside a Trader Joe's grocery store, shot from a low angle looking up at the storefront sign and sky, natural daylight, authentic TikTok slideshow style. Add a white rounded text sticker near the top that says exactly: "${HOOK_TEXT}". Do not include emojis. Make it look like a real phone photo, not a designed graphic.`;
 }
 
 function productPrompt(productName: string): string {
@@ -67,7 +68,7 @@ export function buildTrendPackage(): GeneratedPackage {
     hashtags: ["#traderjoesfinds", "#nontoxicliving", "#healthysnacks", "#groceryhaul"],
     slideText: carouselSlides.map((slide) => {
       if (slide.kind === "storefront-hook") {
-        return "NON-TOXIC Trader Joe's snacks 🥨🥑🧀";
+        return HOOK_TEXT;
       }
       if (slide.kind === "product-photo") {
         return `Product photo: ${slide.productName}`;

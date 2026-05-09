@@ -27,6 +27,14 @@ export default async function PhonePage({ params }: PhonePageProps) {
           <p className="lede">Save the images, copy the caption, then post natively in TikTok or Instagram.</p>
         </section>
 
+        <section className="panel phoneQrPanel">
+          <div>
+            <h2>Scan to open this page</h2>
+            <p className="mutedText">Use this from your computer when you want the package on your phone.</p>
+          </div>
+          <img className="qrCode" src={`/api/jobs/${id}/qr`} alt="QR code for this phone handoff page" />
+        </section>
+
         <section className="panel phoneActions">
           <button type="button" data-copy-caption={captions} className="copyCaptionButton">
             Copy caption

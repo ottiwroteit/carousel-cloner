@@ -17,6 +17,8 @@ describe("buildTrendPackage", () => {
       "bare-screenshot"
     ]);
     expect(pkg.imagePrompts?.[0]).toContain('says exactly: "NON-TOXIC Trader Joe\'s snacks');
+    expect(pkg.imagePrompts?.[0]).toContain("Do not include emojis");
+    expect(pkg.slideText.join("\n")).not.toMatch(/\p{Emoji_Presentation}/u);
     expect(pkg.imagePrompts?.[1]).toContain('"Kettle Cooked Olive Oil Potato Chips"');
   });
 

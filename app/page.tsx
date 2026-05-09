@@ -170,9 +170,7 @@ export default function Home() {
             </div>
             <img className="qrCode" src={qrUrl} alt="QR code for phone handoff page" />
             <div className="actions wrap">
-              <a href={phoneUrl} target="_blank">
-                Open phone page
-              </a>
+              <a href={phoneUrl}>Open phone page</a>
               <a href={`/api/jobs/${job.status.id}/images`}>Download all images</a>
             </div>
           </article>
