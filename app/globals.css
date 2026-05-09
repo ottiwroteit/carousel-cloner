@@ -239,6 +239,10 @@ dd {
   line-height: 1.65;
 }
 
+.slideList strong {
+  color: var(--text);
+}
+
 .mutedText {
   color: var(--muted);
   line-height: 1.55;
@@ -375,6 +379,21 @@ dd {
 .phoneImageCard a {
   display: block;
   padding: 14px;
+}
+
+.bareSlot {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-style: dashed;
+  color: var(--muted);
+  text-align: center;
+}
+
+.bareSlot h2 {
+  margin-bottom: 8px;
+  font-size: 1.4rem;
 }
 
 @media (max-width: 820px) {

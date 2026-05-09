@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { JobSnapshot } from "@/lib/jobs/store";
-import type { GeneratedPackage, SourceAnalysis, StyleProfile } from "@/lib/types";
+import type { CarouselSlidePlan, GeneratedPackage, SourceAnalysis, StyleProfile } from "@/lib/types";
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -148,10 +148,13 @@ export default function Home() {
           </article>
 
           <article className="panel">
-            <h2>Slide Text</h2>
+            <h2>Carousel Order</h2>
             <ol className="slideList">
-              {generated.slideText.map((slide) => (
-                <li key={slide}>{slide}</li>
+              {(generated.carouselSlides ?? []).map((slide: CarouselSlidePlan) => (
+                <li key={`${slide.position}-${slide.title}`}>
+                  <strong>Slide {slide.position}:</strong> {slide.title}
+                  {slide.kind === "bare-screenshot" ? " — add BARE app screenshot" : ""}
+                </li>
               ))}
             </ol>
           </article>
@@ -175,7 +178,7 @@ export default function Home() {
           </article>
 
           <article className="panel">
-            <h2>Generated Images</h2>
+            <h2>Generated Photos</h2>
             {imageGeneration?.provider === "local-svg" ? (
               <p className="warningText">OpenAI image generation did not run: {imageGeneration.reason}</p>
             ) : null}
@@ -185,15 +188,18 @@ export default function Home() {
               </p>
             ) : null}
             <div className="imageGrid">
-              {(generated.generatedImages ?? []).map((image, index) => {
+              {(generated.carouselSlides ?? [])
+                .filter((slide) => slide.kind !== "bare-screenshot" && slide.generatedImage)
+                .map((slide) => {
+                const image = slide.generatedImage as string;
                 const imageUrl = `/api/jobs/${job.status.id}/files/${image}`;
                 const extension = image.split(".").at(-1) ?? "png";
                 return (
                   <figure key={image} className="imageCard">
-                    <img src={imageUrl} alt={`Generated carousel slide ${index + 1}`} />
+                    <img src={imageUrl} alt={`Generated ${slide.title}`} />
                     <figcaption>
-                      Slide {index + 1}
-                      <a href={imageUrl} download={`slide-${String(index + 1).padStart(2, "0")}.${extension}`}>
+                      Slide {slide.position}
+                      <a href={imageUrl} download={`slide-${String(slide.position).padStart(2, "0")}.${extension}`}>
                         Save image
                       </a>
                     </figcaption>

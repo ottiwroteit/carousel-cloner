@@ -27,6 +27,17 @@ export type GeneratedPackage = {
   postingNotes: string[];
   imagePrompts?: string[];
   generatedImages?: string[];
+  carouselSlides?: CarouselSlidePlan[];
+};
+
+export type CarouselSlidePlan = {
+  position: number;
+  kind: "storefront-hook" | "product-photo" | "bare-screenshot";
+  title: string;
+  storeName?: string;
+  productName?: string;
+  prompt?: string;
+  generatedImage?: string;
 };
 
 export type JobStatus = {

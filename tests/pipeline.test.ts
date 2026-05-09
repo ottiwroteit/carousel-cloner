@@ -50,21 +50,29 @@ describe("processJob", () => {
       hook: "Direct TikTok extraction was blocked"
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
-      title: "Local draft carousel",
+      title: "Non-toxic Trader Joe's snacks",
       generatedImages: [
         "generated/slide-01.svg",
         "generated/slide-02.svg",
         "generated/slide-03.svg",
-        "generated/slide-04.svg",
-        "generated/slide-05.svg"
+        "generated/slide-04.svg"
       ]
     });
+    expect((readBack.artifacts["package.json"] as { carouselSlides: Array<{ kind: string }> }).carouselSlides.map((slide) => slide.kind)).toEqual([
+      "storefront-hook",
+      "product-photo",
+      "bare-screenshot",
+      "product-photo",
+      "bare-screenshot",
+      "product-photo",
+      "bare-screenshot"
+    ]);
     expect(readBack.artifacts["image-generation.json"]).toMatchObject({
       provider: "local-svg",
       reason: "OPENAI_API_KEY is not set."
     });
     expect(captions).toContain("Main caption:");
-    expect(captions).toContain("# Local draft carousel");
+    expect(captions).toContain("# Non-toxic Trader Joe's snacks");
   });
 
   test("falls back to local images when OpenAI image generation fails", async () => {
@@ -98,8 +106,7 @@ describe("processJob", () => {
         "generated/slide-01.svg",
         "generated/slide-02.svg",
         "generated/slide-03.svg",
-        "generated/slide-04.svg",
-        "generated/slide-05.svg"
+        "generated/slide-04.svg"
       ]
     });
   });

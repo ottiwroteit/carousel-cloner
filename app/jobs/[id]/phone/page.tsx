@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { readJob, readJobTextArtifact } from "@/lib/jobs/store";
-import type { GeneratedPackage } from "@/lib/types";
+import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 type PhonePageProps = {
   params: Promise<{ id: string }>;
@@ -14,7 +14,7 @@ export default async function PhonePage({ params }: PhonePageProps) {
     const job = await readJob(id);
     const captions = await readJobTextArtifact(id, "captions.txt");
     const pkg = job.artifacts["package.json"] as GeneratedPackage;
-    const images = pkg.generatedImages ?? [];
+    const slides = pkg.carouselSlides ?? [];
 
     return (
       <main className="phonePage">
@@ -35,14 +35,31 @@ export default async function PhonePage({ params }: PhonePageProps) {
         </section>
 
         <section className="phoneImageStack">
-          {images.map((image, index) => {
+          {slides.map((slide: CarouselSlidePlan) => {
+            if (slide.kind === "bare-screenshot") {
+              return (
+                <article className="phoneImageCard bareSlot" key={`${slide.position}-${slide.title}`}>
+                  <div>
+                    <p className="eyebrow">Slide {slide.position}</p>
+                    <h2>Insert BARE screenshot</h2>
+                    <p>{slide.productName}</p>
+                  </div>
+                </article>
+              );
+            }
+
+            const image = slide.generatedImage;
+            if (!image) {
+              return null;
+            }
+
             const url = `/api/jobs/${id}/files/${image}`;
             const extension = image.split(".").at(-1) ?? "png";
             return (
               <article className="phoneImageCard" key={image}>
-                <img src={url} alt={`Generated carousel slide ${index + 1}`} />
-                <a href={url} download={`slide-${String(index + 1).padStart(2, "0")}.${extension}`}>
-                  Save image {index + 1}
+                <img src={url} alt={`Generated ${slide.title}`} />
+                <a href={url} download={`slide-${String(slide.position).padStart(2, "0")}.${extension}`}>
+                  Save slide {slide.position}
                 </a>
               </article>
             );

@@ -2,6 +2,7 @@ import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
 import { generateSlideImages } from "@/lib/generator/slides";
+import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
 import {
   DEFAULT_JOBS_ROOT,
   readJob,
@@ -10,7 +11,7 @@ import {
   writeJobTextArtifact,
   type JobSnapshot
 } from "@/lib/jobs/store";
-import type { GeneratedPackage, SourceAnalysis } from "@/lib/types";
+import type { SourceAnalysis } from "@/lib/types";
 
 type ProcessJobOptions = {
   root?: string;
@@ -21,44 +22,12 @@ type ProcessJobOptions = {
 
 function buildFallbackAnalysis(reason: string): SourceAnalysis {
   return {
-    summary: "Direct extraction did not return source slides, so this is a local draft based on the requested account style.",
+    summary: "Direct extraction did not return source slides, so this job uses the grocery-store trend cadence.",
     hook: reason.includes("blocked") ? "Direct TikTok extraction was blocked" : reason,
-    pacing: "Use a five-slide structure: problem, pattern, method, payoff, CTA.",
-    visualPattern: "Clean vertical slides with one primary idea per image.",
-    captionStrategy: "Open with the workflow pain, then make the saved-time benefit concrete.",
-    whyItWorks: "It still produces usable captions and slide copy while keeping the failed extractor details visible."
-  };
-}
-
-function buildLocalPackage(): GeneratedPackage {
-  return {
-    title: "Local draft carousel",
-    mainCaption:
-      "You do not need to reinvent every carousel. Start by studying the structure that is already working, then rebuild the idea in your own voice and visual system.",
-    alternateHooks: [
-      "Stop starting every carousel from a blank page",
-      "The faster way to turn working posts into original content"
-    ],
-    hashtags: ["#contentautomation", "#creatorworkflow", "#socialmediatips"],
-    slideText: [
-      "Find a slideshow already getting traction",
-      "Extract the pattern behind the post",
-      "Rewrite the angle for your audience",
-      "Generate new visuals in your account style",
-      "Copy the caption package and post natively"
-    ],
-    postingNotes: [
-      "Review the source analysis before posting.",
-      "Replace any generic phrasing with a recent example from your own work."
-    ],
-    imagePrompts: [
-      "Vertical carousel slide, clean app dashboard aesthetic, headline about finding a working slideshow",
-      "Vertical carousel slide, structured analysis cards, headline about extracting the pattern",
-      "Vertical carousel slide, crisp writing interface, headline about rewriting the angle",
-      "Vertical carousel slide, polished generated images grid, headline about account style",
-      "Vertical carousel slide, caption export panel, headline about posting natively"
-    ],
-    generatedImages: []
+    pacing: "Use the trend sequence: storefront hook, product-in-hand photo, BARE app screenshot, then repeat for each product.",
+    visualPattern: "Photorealistic vertical phone photos, not designed cards. First slide has hook overlay; product slides have no text.",
+    captionStrategy: "Frame the post as cleaner grocery finds worth saving before the next store trip.",
+    whyItWorks: "It matches a TikTok-native shopping format: recognizable store context, real product proof, then BARE app validation."
   };
 }
 
@@ -100,18 +69,19 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
 
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
-  const generated = buildLocalPackage();
+  let generated = buildTrendPackage();
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
   const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
 
   if (hasOpenAIKey) {
     const imageConfig = getOpenAIImageConfig();
     try {
-      generated.generatedImages = await openAIImageGenerator({
+      const generatedImages = await openAIImageGenerator({
         jobDir: snapshot.dir,
         prompts: generated.imagePrompts ?? generated.slideText,
         config: imageConfig
       });
+      generated = attachGeneratedImagesToSlides(generated, generatedImages);
       await writeJobArtifact(
         id,
         "image-generation.json",
@@ -125,7 +95,8 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+      const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+      generated = attachGeneratedImagesToSlides(generated, generatedImages);
       await writeJobArtifact(
         id,
         "image-generation.json",
@@ -137,7 +108,8 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       );
     }
   } else {
-    generated.generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+    const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+    generated = attachGeneratedImagesToSlides(generated, generatedImages);
     await writeJobArtifact(
       id,
       "image-generation.json",

@@ -75,15 +75,20 @@ export async function generateSlideImages(jobDir: string, pkg: GeneratedPackage,
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
 
+  const slideTitles = pkg.carouselSlides?.length
+    ? pkg.carouselSlides
+        .filter((slide) => slide.kind !== "bare-screenshot")
+        .map((slide) => slide.title)
+    : pkg.slideText;
   const paths: string[] = [];
-  for (const [index, title] of pkg.slideText.entries()) {
+  for (const [index, title] of slideTitles.entries()) {
     const filename = `slide-${String(index + 1).padStart(2, "0")}.svg`;
     const relativePath = path.join("generated", filename);
     await writeFile(
       path.join(jobDir, relativePath),
       renderSlideSvg({
         index: index + 1,
-        total: pkg.slideText.length,
+        total: slideTitles.length,
         title,
         profile
       }),
