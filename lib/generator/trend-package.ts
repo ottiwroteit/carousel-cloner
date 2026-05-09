@@ -8,8 +8,10 @@ type BuildTrendPackageOptions = {
 };
 
 type Product = {
+  brand: string;
   name: string;
   shortName: string;
+  searchName: string;
 };
 
 type HeroScene = {
@@ -36,12 +38,54 @@ type TimingHook = HookFamily & {
 const STORES = ["Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B", "Jewel-Osco"];
 
 const PRODUCTS: Product[] = [
-  { name: "Kettle Cooked Olive Oil Potato Chips", shortName: "Olive Oil Potato Chips" },
-  { name: "Unexpected Cheddar Cheese Snackers", shortName: "Unexpected Cheddar Cheese Snackers" },
-  { name: "Salsa Taquera", shortName: "Salsa Taquera" },
-  { name: "Organic Apple Sauce Crushers", shortName: "Apple Sauce Crushers" },
-  { name: "Peanut Butter Filled Pretzels", shortName: "Peanut Butter Pretzels" },
-  { name: "Freeze Dried Strawberries", shortName: "Freeze Dried Strawberries" }
+  {
+    brand: "Siete",
+    name: "Sea Salt Grain Free Tortilla Chips",
+    shortName: "Siete Sea Salt Tortilla Chips",
+    searchName: "Siete Sea Salt Grain Free Tortilla Chips product package"
+  },
+  {
+    brand: "Boulder Canyon",
+    name: "Olive Oil Kettle Cooked Potato Chips",
+    shortName: "Boulder Canyon Olive Oil Chips",
+    searchName: "Boulder Canyon Olive Oil Kettle Cooked Potato Chips product package"
+  },
+  {
+    brand: "Primal Kitchen",
+    name: "Organic Unsweetened Ketchup",
+    shortName: "Primal Kitchen Ketchup",
+    searchName: "Primal Kitchen Organic Unsweetened Ketchup product package"
+  },
+  {
+    brand: "Spindrift",
+    name: "Sparkling Water Lemon",
+    shortName: "Spindrift Lemon Sparkling Water",
+    searchName: "Spindrift Lemon Sparkling Water product package"
+  },
+  {
+    brand: "Chomps",
+    name: "Original Beef Stick",
+    shortName: "Chomps Original Beef Stick",
+    searchName: "Chomps Original Beef Stick product package"
+  },
+  {
+    brand: "That's it.",
+    name: "Apple + Strawberry Fruit Bar",
+    shortName: "That's it. Apple Strawberry Bar",
+    searchName: "That's it Apple Strawberry Fruit Bar product package"
+  },
+  {
+    brand: "LesserEvil",
+    name: "Himalayan Pink Salt Popcorn",
+    shortName: "LesserEvil Pink Salt Popcorn",
+    searchName: "LesserEvil Himalayan Pink Salt Popcorn product package"
+  },
+  {
+    brand: "Simple Mills",
+    name: "Almond Flour Crackers Fine Ground Sea Salt",
+    shortName: "Simple Mills Sea Salt Crackers",
+    searchName: "Simple Mills Almond Flour Crackers Fine Ground Sea Salt product package"
+  }
 ];
 
 const HERO_SCENES: HeroScene[] = [
@@ -305,9 +349,13 @@ function buildHeroPrompt(hookText: string, scene: HeroScene, storeName: string |
   return `Photorealistic vertical smartphone photo ${sceneDescription}, natural grocery-store lighting, casual TikTok slideshow aesthetic. Add a white rounded text sticker near the top that says exactly: "${hookText}". No emojis in the text. Make it look like a real phone photo, not a designed graphic.`;
 }
 
-function productPrompt(productName: string, storeName: string | undefined): string {
+function productDisplayName(product: Product): string {
+  return `${product.brand} ${product.name}`;
+}
+
+function productPrompt(product: Product, storeName: string | undefined): string {
   const storeContext = storeName ? `inside ${storeName}` : "inside a grocery store";
-  return `Photorealistic vertical smartphone photo ${storeContext}. A real human hand is holding the exact product "${productName}" in the foreground, label facing camera, product name spelled correctly and readable. Grocery shelf background with similar items, natural store lighting, casual TikTok slideshow aesthetic, no overlay text, no graphic design, no fake UI.`;
+  return `Photorealistic vertical smartphone photo ${storeContext}. A real human hand is holding the exact branded packaged product "${productDisplayName(product)}" in the foreground, label facing camera, brand and product name spelled correctly and readable, barcode present somewhere on the package if visible. Grocery shelf background with similar items, natural store lighting, casual TikTok slideshow aesthetic, no overlay text, no graphic design, no fake UI.`;
 }
 
 function sentenceCase(value: string): string {
@@ -364,14 +412,14 @@ export function buildTrendPackage({ now = new Date(), random = Math.random }: Bu
       kind: "product-photo",
       title: product.shortName,
       storeName,
-      productName: product.name,
-      prompt: productPrompt(product.name, storeName)
+      productName: productDisplayName(product),
+      prompt: productPrompt(product, storeName)
     });
     carouselSlides.push({
       position: carouselSlides.length + 1,
       kind: "bare-screenshot",
       title: `BARE app screenshot for ${product.shortName}`,
-      productName: product.name
+      productName: productDisplayName(product)
     });
   }
 

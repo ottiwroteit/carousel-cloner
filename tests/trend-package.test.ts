@@ -19,7 +19,10 @@ describe("buildTrendPackage", () => {
     expect(pkg.imagePrompts?.[0]).toContain('says exactly: "Things I always buy at Trader Joe\'s"');
     expect(pkg.imagePrompts?.[0]).toContain("No emojis in the text");
     expect(pkg.slideText.join("\n")).not.toMatch(/\p{Emoji_Presentation}/u);
-    expect(pkg.imagePrompts?.[1]).toContain('"Kettle Cooked Olive Oil Potato Chips"');
+    expect(pkg.imagePrompts?.[1]).toContain('"Siete Sea Salt Grain Free Tortilla Chips"');
+    expect(pkg.carouselSlides?.filter((slide) => slide.kind === "product-photo").every((slide) => /\s/.test(slide.productName ?? ""))).toBe(
+      true
+    );
   });
 
   test("can create benefit hooks without a named store", () => {

@@ -50,10 +50,11 @@ function imageScore(result: DuckDuckGoImageResult, productName: string): number 
   const haystack = `${result.title ?? ""} ${result.url ?? ""} ${result.image ?? ""}`.toLowerCase();
   const productWords = productName.toLowerCase().split(/\s+/).filter((word) => word.length > 3);
   const wordHits = productWords.filter((word) => haystack.includes(word)).length;
+  const firstWords = productWords.slice(0, 2).filter((word) => haystack.includes(word)).length * 4;
   const retailerBoost = /(heb|kroger|target|walmart|publix|sprouts|traderjoes|trader-joe|wholefoods|instacart|nuts\.com)/.test(haystack) ? 4 : 0;
   const imageSize = Math.min(result.width ?? 0, result.height ?? 0) >= 600 ? 2 : 0;
 
-  return wordHits + retailerBoost + imageSize;
+  return wordHits + firstWords + retailerBoost + imageSize;
 }
 
 async function searchDuckDuckGoImages(query: string, fetcher: FetchLike): Promise<DuckDuckGoImageResult[]> {
