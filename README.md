@@ -26,6 +26,27 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Running Without Codex
+
+Codex is only needed to edit or improve the app. The Carousel Cloner runs as a normal local Next.js app from this folder.
+
+Fast local mode:
+
+```bash
+npm run local
+```
+
+Production mode:
+
+```bash
+npm run build
+npm start
+```
+
+On macOS, you can also double-click `Start Carousel Cloner.command` in this folder. It opens a Terminal window, starts the app, and keeps it running until you press `Control+C`.
+
+Your phone handoff still works as long as your phone and computer are on the same Wi-Fi network. Codex usage limits do not affect the running app. OpenAI image generation depends on your OpenAI API key and billing limits, but local BARE product-image mode does not use Codex or OpenAI tokens.
+
 ## Optional Environment
 
 ```bash
@@ -36,7 +57,7 @@ OPENAI_IMAGE_QUALITY=medium
 TIKTOK_COOKIES_FILE=/absolute/path/to/cookies.txt
 ```
 
-The app defaults to local SVG image generation so the full pipeline can run without paid APIs. Set `CAROUSEL_IMAGE_PROVIDER=openai` and `OPENAI_API_KEY` only when you want paid ChatGPT/OpenAI image generation.
+The app defaults to local generation so the full pipeline can run without paid APIs. When BARE product image URLs are available, local mode uses those real product images in vertical 9:16 slides; otherwise it falls back to placeholder SVG slides. Set `CAROUSEL_IMAGE_PROVIDER=openai` and `OPENAI_API_KEY` only when you want paid ChatGPT/OpenAI image generation.
 
 `OPENAI_IMAGE_MODEL` controls image cost. Supported values:
 

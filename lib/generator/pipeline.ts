@@ -1,7 +1,10 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
+import { composeProductImage } from "@/lib/generator/compose-product-image";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
-import { generateSlideImages } from "@/lib/generator/slides";
+import { generateSlideImages, renderSlideSvg } from "@/lib/generator/slides";
 import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
 import { findWebProductImage, type WebProductImage } from "@/lib/generator/web-product-images";
 import {
@@ -28,6 +31,7 @@ type ProcessJobOptions = {
 type ImageGenerationArtifact =
   | { provider: "openai"; model: string; quality: string; outputFormat: string }
   | { provider: "hybrid-web-openai"; model: string; quality: string; outputFormat: string; productSources: WebProductImage[] }
+  | { provider: "local-real-products"; reason: string; productSources: WebProductImage[] }
   | { provider: "local-svg"; reason: string };
 
 function buildFallbackAnalysis(reason: string): SourceAnalysis {
@@ -39,6 +43,60 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
     captionStrategy: "Frame the post as cleaner grocery finds worth saving before the next store trip.",
     whyItWorks: "It matches a TikTok-native shopping format: recognizable store context, real product proof, then BARE app validation."
   };
+}
+
+async function generateLocalImagesWithRealProducts(
+  snapshot: JobSnapshot,
+  pkg: ReturnType<typeof buildTrendPackage>,
+  findProductImage: typeof findWebProductImage
+): Promise<{ generatedImages: string[]; productSources: WebProductImage[] }> {
+  const generatedDir = path.join(snapshot.dir, "generated");
+  await mkdir(generatedDir, { recursive: true });
+
+  const slides = (pkg.carouselSlides ?? []).filter((slide) => slide.kind !== "bare-screenshot");
+  const generatedImages: string[] = [];
+  const productSources: WebProductImage[] = [];
+
+  for (const [index, slide] of slides.entries()) {
+    const slideNumber = index + 1;
+
+    if (slide.productName && slide.bareImageUrl) {
+      const productImage = await findProductImage({
+        jobDir: snapshot.dir,
+        productName: slide.productName,
+        imageUrl: slide.bareImageUrl,
+        pageUrl: slide.barcode ? `bare://product/${slide.barcode}` : undefined,
+        title: slide.productName,
+        index
+      });
+      productSources.push(productImage);
+      generatedImages.push(
+        await composeProductImage({
+          jobDir: snapshot.dir,
+          sourceRelativePath: productImage.relativePath,
+          outputName: `slide-${String(slideNumber).padStart(2, "0")}`,
+          variant: slideNumber
+        })
+      );
+      continue;
+    }
+
+    const filename = `slide-${String(slideNumber).padStart(2, "0")}.svg`;
+    const relativePath = path.join("generated", filename);
+    await writeFile(
+      path.join(snapshot.dir, relativePath),
+      renderSlideSvg({
+        index: slideNumber,
+        total: slides.length,
+        title: slide.title,
+        profile: snapshot.input.profile
+      }),
+      "utf8"
+    );
+    generatedImages.push(relativePath);
+  }
+
+  return { generatedImages, productSources };
 }
 
 export async function processJob(id: string, options: ProcessJobOptions = {}): Promise<JobSnapshot> {
@@ -182,17 +240,48 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       );
     }
   } else {
-    const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
-    generated = attachGeneratedImagesToSlides(generated, generatedImages);
-    await writeJobArtifact(
-      id,
-      "image-generation.json",
-      {
-        provider: "local-svg",
-        reason: useOpenAIImages ? "OPENAI_API_KEY is not set." : "Local image mode is enabled."
-      },
-      root
-    );
+    const productSlidesWithImages = (generated.carouselSlides ?? []).filter((slide) => slide.kind === "product-photo" && slide.bareImageUrl);
+    if (productSlidesWithImages.length > 0) {
+      try {
+        const { generatedImages, productSources } = await generateLocalImagesWithRealProducts(snapshot, generated, webProductImageFinder);
+        generated = attachGeneratedImagesToSlides(generated, generatedImages);
+        await writeJobArtifact(
+          id,
+          "image-generation.json",
+          {
+            provider: "local-real-products",
+            reason: useOpenAIImages ? "OPENAI_API_KEY is not set; using BARE product images." : "Local mode is using BARE product images.",
+            productSources
+          },
+          root
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+        generated = attachGeneratedImagesToSlides(generated, generatedImages);
+        await writeJobArtifact(
+          id,
+          "image-generation.json",
+          {
+            provider: "local-svg",
+            reason: `Local BARE product images failed: ${message}`
+          },
+          root
+        );
+      }
+    } else {
+      const generatedImages = await generateSlideImages(snapshot.dir, generated, snapshot.input.profile);
+      generated = attachGeneratedImagesToSlides(generated, generatedImages);
+      await writeJobArtifact(
+        id,
+        "image-generation.json",
+        {
+          provider: "local-svg",
+          reason: useOpenAIImages ? "OPENAI_API_KEY is not set." : "Local image mode is enabled."
+        },
+        root
+      );
+    }
   }
 
   await writeJobArtifact(id, "package.json", generated, root);

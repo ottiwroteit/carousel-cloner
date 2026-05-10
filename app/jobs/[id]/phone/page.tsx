@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { readJob, readJobTextArtifact } from "@/lib/jobs/store";
 import { getPhoneBaseUrl } from "@/lib/network";
+import { captionCopyScript } from "@/lib/phone/caption-copy";
 import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 type PhonePageProps = {
@@ -47,6 +48,9 @@ export default async function PhonePage({ params }: PhonePageProps) {
             Copy caption
           </button>
           <Link href={`/api/jobs/${id}/images`}>Download all images</Link>
+          <p className="copyCaptionStatus" data-copy-caption-status>
+            If iPhone blocks copy on local Wi-Fi, the button will select the caption below.
+          </p>
         </section>
 
         <section className="panel swipeReview" data-review-root data-job-id={id}>
@@ -116,30 +120,7 @@ export default async function PhonePage({ params }: PhonePageProps) {
         </section>
         <script
           dangerouslySetInnerHTML={{
-            __html: `document.querySelector('[data-copy-caption-button]')?.addEventListener('click', async (event) => {
-  const button = event.currentTarget;
-  const field = document.querySelector('[data-caption-field]');
-  const text = field?.value || '';
-
-  try {
-    if (navigator.clipboard?.writeText && window.isSecureContext) {
-      await navigator.clipboard.writeText(text);
-      button.textContent = 'Copied';
-      return;
-    }
-    throw new Error('Clipboard API unavailable');
-  } catch {
-    if (field) {
-      field.focus({ preventScroll: true });
-      field.select();
-      field.setSelectionRange(0, text.length);
-      const copied = document.execCommand?.('copy');
-      button.textContent = copied ? 'Copied' : 'Caption selected';
-      return;
-    }
-    button.textContent = 'Copy caption below';
-  }
-});`
+            __html: captionCopyScript()
           }}
         />
         <script

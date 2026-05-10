@@ -28,6 +28,7 @@ export default function Home() {
   const imageGeneration = job?.artifacts["image-generation.json"] as
     | { provider: "openai"; model: string; quality: string; outputFormat: string }
     | { provider: "hybrid-web-openai"; model: string; quality: string; outputFormat: string; productSources: unknown[] }
+    | { provider: "local-real-products"; reason: string; productSources: unknown[] }
     | { provider: "local-svg"; reason: string }
     | undefined;
 
@@ -190,6 +191,12 @@ export default function Home() {
               <p className="successText">
                 Generated hook with {imageGeneration.model}; sourced {imageGeneration.productSources.length} product image
                 {imageGeneration.productSources.length === 1 ? "" : "s"} from the web.
+              </p>
+            ) : null}
+            {imageGeneration?.provider === "local-real-products" ? (
+              <p className="successText">
+                Local mode used {imageGeneration.productSources.length} real BARE product image
+                {imageGeneration.productSources.length === 1 ? "" : "s"}.
               </p>
             ) : null}
             <div className="imageGrid">
