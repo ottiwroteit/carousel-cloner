@@ -18,6 +18,8 @@ export default async function PhonePage({ params }: PhonePageProps) {
     const captions = await readJobTextArtifact(id, "captions.txt");
     const pkg = job.artifacts["package.json"] as GeneratedPackage;
     const slides = pkg.carouselSlides ?? [];
+    const reviewSlides = slides.filter((slide) => slide.kind !== "bare-screenshot" && slide.generatedImage);
+    const firstReviewSlide = reviewSlides[0];
     const requestHeaders = await headers();
     const host = requestHeaders.get("host") ?? "localhost:3000";
     const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
@@ -57,14 +59,18 @@ export default async function PhonePage({ params }: PhonePageProps) {
           <div className="swipeReviewHeader">
             <div>
               <p className="eyebrow" data-review-step>
-                Review
+                {firstReviewSlide?.kind === "storefront-hook" ? "Hero slide" : "Product slide"}
               </p>
-              <h2 data-review-title>Loading candidate</h2>
+              <h2 data-review-title>{firstReviewSlide?.productName ?? firstReviewSlide?.title ?? "Review"}</h2>
             </div>
-            <span data-review-count>0/0</span>
+            <span data-review-count>{reviewSlides.length ? `1/${reviewSlides.length}` : "0/0"}</span>
           </div>
           <div className="swipeFrame" data-swipe-frame>
-            <img data-review-image alt="Current carousel candidate" />
+            <img
+              data-review-image
+              src={firstReviewSlide?.generatedImage ? `/api/jobs/${id}/files/${firstReviewSlide.generatedImage}` : undefined}
+              alt="Current carousel candidate"
+            />
             <div className="swipeLoading" data-review-loading hidden>
               Generating next option...
             </div>
@@ -146,16 +152,29 @@ export default async function PhonePage({ params }: PhonePageProps) {
     loading.hidden = false;
     accept.disabled = true;
     reject.disabled = true;
-    const response = await fetch('/api/jobs/' + jobId + '/review', action ? {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action })
-    } : undefined);
-    state = await response.json();
-    render();
+    try {
+      const response = await fetch('/api/jobs/' + jobId + '/review', action ? {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      } : undefined);
+      if (!response.ok) throw new Error('Review request failed');
+      state = await response.json();
+      render();
+    } catch {
+      loading.hidden = true;
+      title.textContent = 'Review did not load';
+      step.textContent = 'Refresh needed';
+      detail.textContent = 'Refresh this page and try again.';
+      accept.disabled = true;
+      reject.disabled = true;
+    }
   }
 
   function render() {
+    if (!state?.slots) {
+      throw new Error('Review state missing slots');
+    }
     const slot = state.slots[state.currentIndex];
     loading.hidden = true;
     accept.disabled = false;
