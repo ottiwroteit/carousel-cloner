@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { generateReviewCandidate } from "@/lib/review/candidates";
+import { applyAcceptedSlotToPackage } from "@/lib/review/package-sync";
 import { acceptCurrentSlot, getOrCreateReviewState, rejectCurrentSlot, saveReviewState } from "@/lib/review/state";
 
 type RouteContext = {
@@ -17,12 +19,24 @@ export async function POST(request: Request, context: RouteContext) {
 
   if (body.action === "accept") {
     const next = acceptCurrentSlot(state);
+    const acceptedSlot = next.slots[state.currentIndex];
+    if (acceptedSlot?.acceptedImage) {
+      await applyAcceptedSlotToPackage(id, acceptedSlot);
+    }
     await saveReviewState(next);
     return NextResponse.json(next);
   }
 
   if (body.action === "reject") {
-    const next = rejectCurrentSlot(state);
+    const slot = state.slots[state.currentIndex];
+    const candidate = slot
+      ? await generateReviewCandidate({
+          jobId: id,
+          slot,
+          nextRejectCount: slot.rejectCount + 1
+        })
+      : undefined;
+    const next = rejectCurrentSlot(state, candidate);
     await saveReviewState(next);
     return NextResponse.json(next);
   }

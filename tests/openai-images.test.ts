@@ -47,4 +47,30 @@ describe("generateOpenAIImages", () => {
     });
     await expect(readFile(path.join(root, result[0]))).resolves.toEqual(pngBytes);
   });
+
+  test("can write review candidates without overwriting normal slide files", async () => {
+    root = await mkdtemp(path.join(tmpdir(), "carousel-openai-images-"));
+    const pngBytes = Buffer.from("review png bytes");
+
+    const result = await generateOpenAIImages({
+      jobDir: root,
+      prompts: ["Create a replacement product image"],
+      outputNames: ["review-02-siete-chips-3-gpt"],
+      config: {
+        model: "gpt-image-1",
+        quality: "high",
+        enabled: true
+      },
+      client: {
+        images: {
+          generate: async () => ({
+            data: [{ b64_json: pngBytes.toString("base64") }]
+          })
+        }
+      }
+    });
+
+    expect(result).toEqual(["generated/review-02-siete-chips-3-gpt.png"]);
+    await expect(readFile(path.join(root, result[0]))).resolves.toEqual(pngBytes);
+  });
 });

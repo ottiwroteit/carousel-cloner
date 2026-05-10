@@ -11,6 +11,7 @@ export type ReviewSlot = {
   barcode?: string;
   acceptedImage?: string;
   currentCandidate?: string;
+  sourceImage?: string;
   rejectedImages: string[];
   rejectCount: number;
 };
@@ -38,6 +39,7 @@ function generatedSlots(pkg: GeneratedPackage): ReviewSlot[] {
       productName: slide.productName,
       barcode: slide.barcode,
       currentCandidate: slide.generatedImage,
+      sourceImage: slide.generatedImage,
       rejectedImages: [],
       rejectCount: 0
     }));

@@ -33,6 +33,7 @@ export type OpenAIImageConfig = {
 type GenerateOpenAIImagesOptions = {
   jobDir: string;
   prompts: string[];
+  outputNames?: string[];
   apiKey?: string;
   config?: OpenAIImageConfig;
   client?: ImageClient;
@@ -73,6 +74,7 @@ export function getOpenAIImageConfig(env = process.env): OpenAIImageConfig {
 export async function generateOpenAIImages({
   jobDir,
   prompts,
+  outputNames,
   apiKey = process.env.OPENAI_API_KEY,
   config = getOpenAIImageConfig(),
   client
@@ -98,7 +100,8 @@ export async function generateOpenAIImages({
       throw new Error(`OpenAI image generation returned no image data for slide ${index + 1}.`);
     }
 
-    const filename = `slide-${String(index + 1).padStart(2, "0")}.png`;
+    const outputName = outputNames?.[index] ?? `slide-${String(index + 1).padStart(2, "0")}`;
+    const filename = outputName.endsWith(".png") ? outputName : `${outputName}.png`;
     const relativePath = path.join("generated", filename);
     await writeFile(path.join(jobDir, relativePath), Buffer.from(b64, "base64"));
     paths.push(relativePath);
