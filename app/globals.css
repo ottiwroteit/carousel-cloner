@@ -1,25 +1,36 @@
+@import url("https://fonts.googleapis.com/css2?family=BBH+Bogle&display=swap");
+
 :root {
-  color-scheme: dark;
-  --bg: #080a0f;
-  --panel: #10131a;
-  --panel-2: #151924;
-  --line: #293040;
-  --text: #f5f7fb;
-  --muted: #9ca7ba;
-  --accent: #40d6a3;
-  --accent-2: #7aa7ff;
-  --danger: #ff6b6b;
+  color-scheme: light;
+  --bg: #f6f4ee;
+  --surface: #ffffff;
+  --surface-raised: #fbfaf6;
+  --surface-sunken: #efebe1;
+  --primary: #17201b;
+  --secondary: #5f6b63;
+  --muted: #7b837b;
+  --line: #ded9ce;
+  --line-strong: #c8c1b4;
+  --accent: #1f6a3d;
+  --accent-soft: #e2f2e8;
+  --danger: #b42318;
+  --warning: #8a5a00;
+  --shadow: 0 18px 50px rgba(23, 32, 27, 0.08);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--primary);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -28,32 +39,15 @@ textarea {
   font: inherit;
 }
 
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
 a {
   color: inherit;
-}
-
-.app {
-  width: min(1180px, calc(100vw - 32px));
-  margin: 0 auto;
-  padding: 40px 0;
-}
-
-.masthead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 28px;
-  border-bottom: 1px solid var(--line);
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  color: var(--accent);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 h1,
@@ -64,51 +58,82 @@ p {
 
 h1 {
   margin-bottom: 10px;
-  font-size: clamp(2.4rem, 6vw, 4.8rem);
-  line-height: 0.95;
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2.3rem, 6vw, 4rem);
+  line-height: 1;
   letter-spacing: 0;
 }
 
 h2 {
-  margin-bottom: 16px;
-  font-size: 1rem;
+  margin-bottom: 14px;
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.2;
   letter-spacing: 0;
 }
 
+.app {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 24px;
+  padding: 24px 0 22px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .lede {
-  max-width: 720px;
+  max-width: 760px;
   margin-bottom: 0;
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  color: var(--secondary);
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 .statusPill {
-  min-width: 96px;
+  min-width: 92px;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--accent);
   text-align: center;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 760;
+  box-shadow: 0 8px 24px rgba(23, 32, 27, 0.05);
 }
 
 .grid,
 .lowerGrid,
 .handoffGrid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
   gap: 16px;
   margin-top: 16px;
 }
 
 .panel {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  padding: 18px;
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 20px;
+  box-shadow: var(--shadow);
 }
 
 .controls {
@@ -120,9 +145,10 @@ h2 {
 label {
   display: grid;
   gap: 8px;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-weight: 700;
+  color: var(--secondary);
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 740;
 }
 
 input,
@@ -130,10 +156,14 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel-2);
-  color: var(--text);
-  padding: 11px 12px;
+  background: var(--surface-raised);
+  color: var(--primary);
+  padding: 12px 13px;
   outline: none;
+}
+
+input::placeholder {
+  color: #a09a90;
 }
 
 textarea {
@@ -142,7 +172,8 @@ textarea {
 
 input:focus,
 textarea:focus {
-  border-color: var(--accent-2);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .two {
@@ -152,16 +183,24 @@ textarea:focus {
 }
 
 button,
-.actions a {
-  min-height: 40px;
-  border: 1px solid var(--line);
+.actions a,
+.phoneActions a {
+  min-height: 44px;
+  border: 1px solid var(--primary);
   border-radius: 8px;
-  background: var(--accent);
-  color: #06110d;
+  background: var(--primary);
+  color: #ffffff;
   cursor: pointer;
-  font-weight: 800;
-  padding: 0 14px;
+  font-family: "BBH Bogle", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 780;
+  padding: 0 15px;
   text-decoration: none;
+}
+
+button:hover,
+.actions a:hover,
+.phoneActions a:hover {
+  transform: translateY(-1px);
 }
 
 button:disabled,
@@ -169,11 +208,13 @@ button:disabled,
   cursor: not-allowed;
   opacity: 0.45;
   pointer-events: none;
+  transform: none;
 }
 
 .error {
   margin: 0;
   color: var(--danger);
+  line-height: 1.45;
 }
 
 .panelHeader {
@@ -195,8 +236,9 @@ button:disabled,
 .actions a {
   display: inline-flex;
   align-items: center;
-  background: transparent;
-  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--primary);
 }
 
 .captionBox,
@@ -204,9 +246,9 @@ button:disabled,
   min-height: 310px;
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #080a0f;
-  color: var(--text);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--primary);
   padding: 14px;
   white-space: pre-wrap;
   line-height: 1.55;
@@ -219,7 +261,10 @@ button:disabled,
 }
 
 .empty {
+  display: grid;
+  place-items: center;
   color: var(--muted);
+  text-align: center;
 }
 
 dl {
@@ -227,30 +272,44 @@ dl {
 }
 
 dt {
-  color: var(--accent-2);
-  font-size: 0.8rem;
-  font-weight: 800;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 780;
+  text-transform: uppercase;
 }
 
 dd {
   margin: 6px 0 16px;
-  color: var(--muted);
+  color: var(--secondary);
   line-height: 1.5;
 }
 
 .slideList {
+  display: grid;
+  gap: 10px;
   margin: 0;
-  padding-left: 20px;
-  color: var(--muted);
-  line-height: 1.65;
+  padding: 0;
+  list-style: none;
+  color: var(--secondary);
+  line-height: 1.45;
+}
+
+.slideList li {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.slideList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .slideList strong {
-  color: var(--text);
+  color: var(--primary);
 }
 
 .mutedText {
-  color: var(--muted);
+  color: var(--secondary);
   line-height: 1.55;
 }
 
@@ -258,19 +317,19 @@ dd {
 .successText {
   margin-bottom: 14px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 12px;
   line-height: 1.45;
 }
 
 .warningText {
-  color: #ffd166;
-  background: #191505;
+  color: var(--warning);
+  background: #fff6df;
 }
 
 .successText {
   color: var(--accent);
-  background: #071711;
+  background: var(--accent-soft);
 }
 
 .handoffPanel {
@@ -284,16 +343,23 @@ dd {
   gap: 16px;
 }
 
+.phoneQrPanel a {
+  overflow-wrap: anywhere;
+  color: var(--secondary);
+  font-size: 0.9rem;
+}
+
 .qrCode {
-  width: min(100%, 260px);
-  border-radius: 8px;
-  background: #fff;
+  width: min(100%, 230px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
   padding: 10px;
 }
 
 .imageGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
@@ -301,8 +367,8 @@ dd {
   margin: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #080a0f;
+  border-radius: 12px;
+  background: var(--surface-raised);
 }
 
 .imageCard img,
@@ -312,43 +378,48 @@ dd {
   height: auto;
 }
 
+.imageCard img {
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+}
+
 .imageCard figcaption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 10px;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--secondary);
+  font-size: 0.84rem;
 }
 
 .imageCard a,
 .phoneImageCard a {
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 780;
   text-decoration: none;
 }
 
 .phonePage {
   width: min(680px, calc(100vw - 24px));
   margin: 0 auto;
-  padding: 24px 0 56px;
+  padding: 18px 0 56px;
 }
 
 .phoneHero {
-  padding: 12px 0 18px;
+  padding: 10px 0 16px;
 }
 
 .backLink {
   display: inline-flex;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 780;
   text-decoration: none;
 }
 
 .phoneHero h1 {
-  font-size: 2.2rem;
+  font-size: clamp(2rem, 10vw, 3rem);
   line-height: 1;
 }
 
@@ -360,18 +431,19 @@ dd {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-bottom: 16px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(246, 244, 238, 0.88);
+  backdrop-filter: blur(14px);
 }
 
 .phoneActions a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--text);
-  font-weight: 800;
-  text-decoration: none;
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--primary);
 }
 
 .phoneImageStack {
@@ -382,6 +454,7 @@ dd {
 
 .swipeReview {
   margin-bottom: 16px;
+  padding: 14px;
 }
 
 .swipeReviewHeader {
@@ -389,11 +462,20 @@ dd {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 4px 4px 12px;
+}
+
+.swipeReviewHeader h2 {
+  margin-bottom: 0;
 }
 
 .swipeReviewHeader span {
-  color: var(--muted);
-  font-weight: 800;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--secondary);
+  font-weight: 780;
+  padding: 6px 10px;
 }
 
 .swipeFrame {
@@ -404,8 +486,8 @@ dd {
   width: 100%;
   aspect-ratio: 9 / 16;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #080a0f;
+  border-radius: 22px;
+  background: var(--surface-sunken);
   touch-action: pan-y;
 }
 
@@ -420,9 +502,9 @@ dd {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(8, 10, 15, 0.82);
-  color: var(--text);
-  font-weight: 800;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--primary);
+  font-weight: 780;
 }
 
 .swipeButtons {
@@ -432,11 +514,18 @@ dd {
   margin-top: 12px;
 }
 
+.swipeButtons [data-review-reject] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--primary);
+}
+
 .phoneImageCard {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .phoneImageCard a {
@@ -445,21 +534,26 @@ dd {
 }
 
 .bareSlot {
-  min-height: 260px;
+  min-height: 240px;
   display: grid;
   place-items: center;
   padding: 24px;
   border-style: dashed;
-  color: var(--muted);
+  color: var(--secondary);
   text-align: center;
 }
 
 .bareSlot h2 {
   margin-bottom: 8px;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
 }
 
 @media (max-width: 820px) {
+  .app {
+    width: min(100% - 24px, 680px);
+    padding-top: 16px;
+  }
+
   .masthead,
   .grid,
   .lowerGrid,
@@ -468,11 +562,19 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .phoneActions {
-    grid-template-columns: 1fr;
+  .masthead {
+    gap: 12px;
   }
 
-  .masthead {
-    display: grid;
+  .statusPill {
+    justify-self: start;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .phoneActions {
+    grid-template-columns: 1fr;
   }
 }
