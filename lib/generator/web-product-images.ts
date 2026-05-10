@@ -26,6 +26,9 @@ type FindWebProductImageOptions = {
   jobDir: string;
   productName: string;
   index: number;
+  imageUrl?: string;
+  pageUrl?: string;
+  title?: string;
   fetcher?: FetchLike;
 };
 
@@ -91,10 +94,38 @@ export async function findWebProductImage({
   jobDir,
   productName,
   index,
+  imageUrl,
+  pageUrl,
+  title,
   fetcher = fetch
 }: FindWebProductImageOptions): Promise<WebProductImage> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
+
+  if (imageUrl) {
+    const response = await fetcher(imageUrl, {
+      headers: {
+        "user-agent": USER_AGENT
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`BARE product image failed with ${response.status} for ${productName}.`);
+    }
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const extension = contentTypeToExtension(response.headers.get("content-type"));
+    const filename = `slide-${String(index + 1).padStart(2, "0")}.${extension}`;
+    const relativePath = path.join("generated", filename);
+    await writeFile(path.join(jobDir, relativePath), bytes);
+
+    return {
+      sourceUrl: imageUrl,
+      pageUrl,
+      title,
+      relativePath
+    };
+  }
 
   const query = `${productName} product package image`;
   const results = await searchDuckDuckGoImages(query, fetcher);

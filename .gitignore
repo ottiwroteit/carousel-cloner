@@ -4,6 +4,7 @@ node_modules
 .next-build
 out
 outputs
+data/*.csv
 .env.local
 .env*.local
 coverage

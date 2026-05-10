@@ -12,6 +12,7 @@ import {
   writeJobTextArtifact,
   type JobSnapshot
 } from "@/lib/jobs/store";
+import { readBareCatalog, selectBareProducts } from "@/lib/products/bare-catalog";
 import type { SourceAnalysis } from "@/lib/types";
 
 type ProcessJobOptions = {
@@ -21,6 +22,7 @@ type ProcessJobOptions = {
   useOpenAIImages?: boolean;
   generateOpenAIImages?: typeof generateOpenAIImages;
   findWebProductImage?: typeof findWebProductImage;
+  readBareCatalog?: typeof readBareCatalog;
 };
 
 type ImageGenerationArtifact =
@@ -77,7 +79,28 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
 
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
-  let generated = buildTrendPackage();
+  const catalogReader = options.readBareCatalog ?? readBareCatalog;
+  let catalogProducts;
+  try {
+    catalogProducts = selectBareProducts(await catalogReader(), 3);
+    await writeJobArtifact(
+      id,
+      "bare-product-selection.json",
+      catalogProducts.map((product) => ({
+        barcode: product.barcode,
+        brand: product.brand,
+        productName: product.productName,
+        score: product.score,
+        label: product.label,
+        imageUrl: product.imageUrl
+      })),
+      root
+    );
+  } catch {
+    catalogProducts = undefined;
+  }
+
+  let generated = buildTrendPackage({ bareProducts: catalogProducts });
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
   const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
   const webProductImageFinder = options.findWebProductImage ?? findWebProductImage;
@@ -101,13 +124,26 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
 
       for (const [index, slide] of generatedSlides.entries()) {
         if (slide.productName) {
-          const productImage = await webProductImageFinder({
-            jobDir: snapshot.dir,
-            productName: slide.productName,
-            index
-          });
-          generatedImages.push(productImage.relativePath);
-          productSources.push(productImage);
+          if (slide.bareImageUrl) {
+            const productImage = await webProductImageFinder({
+              jobDir: snapshot.dir,
+              productName: slide.productName,
+              imageUrl: slide.bareImageUrl,
+              pageUrl: slide.barcode ? `bare://product/${slide.barcode}` : undefined,
+              title: slide.productName,
+              index
+            });
+            generatedImages.push(productImage.relativePath);
+            productSources.push(productImage);
+          } else {
+            const productImage = await webProductImageFinder({
+              jobDir: snapshot.dir,
+              productName: slide.productName,
+              index
+            });
+            generatedImages.push(productImage.relativePath);
+            productSources.push(productImage);
+          }
           continue;
         }
 

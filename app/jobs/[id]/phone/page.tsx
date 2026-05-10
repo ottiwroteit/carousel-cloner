@@ -49,6 +49,35 @@ export default async function PhonePage({ params }: PhonePageProps) {
           <Link href={`/api/jobs/${id}/images`}>Download all images</Link>
         </section>
 
+        <section className="panel swipeReview" data-review-root data-job-id={id}>
+          <div className="swipeReviewHeader">
+            <div>
+              <p className="eyebrow" data-review-step>
+                Review
+              </p>
+              <h2 data-review-title>Loading candidate</h2>
+            </div>
+            <span data-review-count>0/0</span>
+          </div>
+          <div className="swipeFrame" data-swipe-frame>
+            <img data-review-image alt="Current carousel candidate" />
+            <div className="swipeLoading" data-review-loading hidden>
+              Generating next option...
+            </div>
+          </div>
+          <p className="mutedText" data-review-detail>
+            Swipe right to keep. Swipe left to try another option.
+          </p>
+          <div className="swipeButtons">
+            <button type="button" data-review-reject>
+              Try another
+            </button>
+            <button type="button" data-review-accept>
+              Keep
+            </button>
+          </div>
+        </section>
+
         <section className="phoneImageStack">
           {slides.map((slide: CarouselSlidePlan) => {
             if (slide.kind === "bare-screenshot") {
@@ -111,6 +140,81 @@ export default async function PhonePage({ params }: PhonePageProps) {
     button.textContent = 'Copy caption below';
   }
 });`
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+  const root = document.querySelector('[data-review-root]');
+  if (!root) return;
+
+  const jobId = root.dataset.jobId;
+  const image = root.querySelector('[data-review-image]');
+  const title = root.querySelector('[data-review-title]');
+  const step = root.querySelector('[data-review-step]');
+  const count = root.querySelector('[data-review-count]');
+  const detail = root.querySelector('[data-review-detail]');
+  const loading = root.querySelector('[data-review-loading]');
+  const accept = root.querySelector('[data-review-accept]');
+  const reject = root.querySelector('[data-review-reject]');
+  const frame = root.querySelector('[data-swipe-frame]');
+  let state;
+  let startX = 0;
+
+  async function request(action) {
+    loading.hidden = false;
+    accept.disabled = true;
+    reject.disabled = true;
+    const response = await fetch('/api/jobs/' + jobId + '/review', action ? {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    } : undefined);
+    state = await response.json();
+    render();
+  }
+
+  function render() {
+    const slot = state.slots[state.currentIndex];
+    loading.hidden = true;
+    accept.disabled = false;
+    reject.disabled = false;
+
+    if (state.complete || !slot) {
+      title.textContent = 'Carousel approved';
+      step.textContent = 'Ready to post';
+      count.textContent = state.slots.length + '/' + state.slots.length;
+      detail.textContent = 'Your accepted images are ready below.';
+      image.removeAttribute('src');
+      image.hidden = true;
+      accept.disabled = true;
+      reject.disabled = true;
+      return;
+    }
+
+    image.hidden = false;
+    image.src = '/api/jobs/' + jobId + '/files/' + slot.currentCandidate + '?v=' + Date.now();
+    title.textContent = slot.productName || slot.title;
+    step.textContent = slot.kind === 'storefront-hook' ? 'Hero slide' : 'Product slide';
+    count.textContent = (state.currentIndex + 1) + '/' + state.slots.length;
+    detail.textContent = slot.rejectCount >= 3
+      ? 'Next rejection should use the polished GPT fallback.'
+      : 'Swipe right to keep. Swipe left to try another option.';
+  }
+
+  accept?.addEventListener('click', () => request('accept'));
+  reject?.addEventListener('click', () => request('reject'));
+  frame?.addEventListener('touchstart', (event) => {
+    startX = event.changedTouches[0].clientX;
+  }, { passive: true });
+  frame?.addEventListener('touchend', (event) => {
+    const dx = event.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) < 50) return;
+    request(dx > 0 ? 'accept' : 'reject');
+  }, { passive: true });
+
+  request();
+})();`
           }}
         />
       </main>

@@ -33,6 +33,7 @@ describe("processJob", () => {
 
     const snapshot = await processJob(job.status.id, {
       root,
+      readBareCatalog: async () => [],
       extract: async () => ({
         ok: false,
         error: {
@@ -81,6 +82,7 @@ describe("processJob", () => {
       root,
       hasOpenAIKey: true,
       useOpenAIImages: true,
+      readBareCatalog: async () => [],
       extract: async () => ({
         ok: false,
         error: {
@@ -108,5 +110,89 @@ describe("processJob", () => {
         "generated/slide-04.svg"
       ]
     });
+  });
+
+  test("uses BARE catalog products when available", async () => {
+    root = await mkdtemp(path.join(tmpdir(), "carousel-pipeline-"));
+    const job = await createJob({ url: "https://www.tiktok.com/@creator/video/1", profile }, root);
+
+    const snapshot = await processJob(job.status.id, {
+      root,
+      hasOpenAIKey: true,
+      useOpenAIImages: true,
+      readBareCatalog: async () => [
+        {
+          barcode: "111",
+          brand: "Siete",
+          productName: "Sea Salt Tortilla Chips",
+          category: "Snacks",
+          score: 95,
+          label: "Excellent",
+          imageUrl: "https://example.com/siete.png",
+          source: "manual",
+          summary: ""
+        },
+        {
+          barcode: "222",
+          brand: "Primal Kitchen",
+          productName: "Ketchup",
+          category: "Pantry",
+          score: 90,
+          label: "Excellent",
+          imageUrl: "https://example.com/ketchup.png",
+          source: "manual",
+          summary: ""
+        },
+        {
+          barcode: "333",
+          brand: "Spindrift",
+          productName: "Lemon Sparkling Water",
+          category: "Beverages",
+          score: 88,
+          label: "Good",
+          imageUrl: "https://example.com/spindrift.png",
+          source: "manual",
+          summary: ""
+        }
+      ],
+      extract: async () => ({
+        ok: false,
+        error: {
+          code: "blocked",
+          message: "TikTok blocked direct extraction for this URL."
+        }
+      }),
+      generateOpenAIImages: async () => ["generated/slide-01.png"],
+      findWebProductImage: async ({ imageUrl, index, productName }) => ({
+        sourceUrl: imageUrl as string,
+        pageUrl: `bare://product/${index}`,
+        title: productName,
+        relativePath: `generated/slide-0${index + 1}.png`
+      })
+    });
+
+    const readBack = await readJob(job.status.id, root);
+    const pkg = readBack.artifacts["package.json"] as { carouselSlides: Array<{ productName?: string; barcode?: string }> };
+
+    expect(snapshot.status.state).toBe("ready");
+    expect(pkg.carouselSlides.filter((slide) => slide.productName).map((slide) => slide.barcode).sort()).toEqual([
+      "111",
+      "111",
+      "222",
+      "222",
+      "333",
+      "333"
+    ]);
+    expect(
+      (
+        readBack.artifacts["bare-product-selection.json"] as Array<{
+          barcode: string;
+          brand: string;
+          productName: string;
+        }>
+      )
+        .map((product) => product.barcode)
+        .sort()
+    ).toEqual(["111", "222", "333"]);
   });
 });

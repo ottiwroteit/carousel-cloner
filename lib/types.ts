@@ -36,6 +36,10 @@ export type CarouselSlidePlan = {
   title: string;
   storeName?: string;
   productName?: string;
+  barcode?: string;
+  bareImageUrl?: string;
+  bareScore?: number | null;
+  bareLabel?: string;
   prompt?: string;
   generatedImage?: string;
 };

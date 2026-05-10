@@ -1,10 +1,12 @@
 import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
+import type { BareProduct } from "@/lib/products/bare-catalog";
 
 type RandomFn = () => number;
 
 type BuildTrendPackageOptions = {
   now?: Date;
   random?: RandomFn;
+  bareProducts?: BareProduct[];
 };
 
 type Product = {
@@ -12,6 +14,10 @@ type Product = {
   name: string;
   shortName: string;
   searchName: string;
+  barcode?: string;
+  imageUrl?: string;
+  score?: number | null;
+  label?: string;
 };
 
 type HeroScene = {
@@ -375,6 +381,19 @@ function selectProducts(random: RandomFn): Product[] {
   return selected;
 }
 
+function productFromBare(product: BareProduct): Product {
+  return {
+    brand: product.brand,
+    name: product.productName,
+    shortName: `${product.brand} ${product.productName}`,
+    searchName: `${product.brand} ${product.productName} product package barcode`,
+    barcode: product.barcode,
+    imageUrl: product.imageUrl,
+    score: product.score,
+    label: product.label
+  };
+}
+
 function selectHook(now: Date, random: RandomFn): { hook: HookFamily; occasion?: string } {
   const timing = eligibleTimingHooks(now);
   const families = timing.length ? [STORE_HOOKS, BENEFIT_HOOKS, timing] : [STORE_HOOKS, BENEFIT_HOOKS, BENEFIT_HOOKS];
@@ -390,12 +409,12 @@ function isTimingHook(hook: HookFamily): hook is TimingHook {
   return "occasion" in hook && typeof hook.occasion === "string";
 }
 
-export function buildTrendPackage({ now = new Date(), random = Math.random }: BuildTrendPackageOptions = {}): GeneratedPackage {
+export function buildTrendPackage({ now = new Date(), random = Math.random, bareProducts }: BuildTrendPackageOptions = {}): GeneratedPackage {
   const { hook, occasion } = selectHook(now, random);
   const scene = pickHeroScene(hook, random);
   const storeName = scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined;
   const hookText = hook.hookText(storeName, occasion);
-  const products = selectProducts(random);
+  const products = bareProducts?.length ? bareProducts.slice(0, 3).map(productFromBare) : selectProducts(random);
   const carouselSlides: CarouselSlidePlan[] = [
     {
       position: 1,
@@ -413,13 +432,21 @@ export function buildTrendPackage({ now = new Date(), random = Math.random }: Bu
       title: product.shortName,
       storeName,
       productName: productDisplayName(product),
+      barcode: product.barcode,
+      bareImageUrl: product.imageUrl,
+      bareScore: product.score,
+      bareLabel: product.label,
       prompt: productPrompt(product, storeName)
     });
     carouselSlides.push({
       position: carouselSlides.length + 1,
       kind: "bare-screenshot",
       title: `BARE app screenshot for ${product.shortName}`,
-      productName: productDisplayName(product)
+      productName: productDisplayName(product),
+      barcode: product.barcode,
+      bareImageUrl: product.imageUrl,
+      bareScore: product.score,
+      bareLabel: product.label
     });
   }
 
