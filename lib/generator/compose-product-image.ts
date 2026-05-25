@@ -94,13 +94,8 @@ export async function composeProductImage({
   const left = Math.round((WIDTH - productWidth) / 2);
   const top = productHeight < 420 ? 760 : Math.round((HEIGHT - productHeight) / 2) + 48;
 
-  const shadow = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="${WIDTH / 2}" cy="${top + productHeight + 36}" rx="${Math.max(220, productWidth * 0.38)}" ry="30" fill="#111827" opacity="0.10"/>
-  </svg>`);
-
   const composed = await sharp(await productBackground(variant))
     .composite([
-      { input: shadow, left: 0, top: 0 },
       { input: product, left, top }
     ])
     .png()
