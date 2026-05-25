@@ -43,7 +43,9 @@ describe("phone review preview", () => {
   test("does not fetch and mutate the review image before hydration", () => {
     const script = reviewClientScript();
 
-    expect(script).toContain("request(action)");
+    expect(script).toContain("request(action, payload = {})");
+    expect(script).toContain("data-review-edit");
+    expect(script).toContain("request('edit', { position })");
     expect(script).not.toContain("request();");
   });
 });

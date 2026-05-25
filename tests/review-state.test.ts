@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { acceptCurrentSlot, rejectCurrentSlot, type ReviewState } from "@/lib/review/state";
+import { acceptCurrentSlot, editSlot, rejectCurrentSlot, type ReviewState } from "@/lib/review/state";
 
 function state(): ReviewState {
   return {
@@ -53,6 +53,17 @@ describe("review state", () => {
     expect(next.slots[0].rejectedImages).toEqual(["generated/slide-01.png"]);
     expect(next.slots[0].currentCandidate).toBe("generated/slide-01b.png");
     expect(next.slots[0].rejectCount).toBe(1);
+    expect(next.currentIndex).toBe(0);
+  });
+
+  test("reopens an approved carousel at a selected slide", () => {
+    const initial = state();
+    initial.complete = true;
+    initial.currentIndex = 1;
+
+    const next = editSlot(initial, 1);
+
+    expect(next.complete).toBe(false);
     expect(next.currentIndex).toBe(0);
   });
 });

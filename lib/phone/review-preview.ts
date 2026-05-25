@@ -48,10 +48,11 @@ export function reviewClientScript(): string {
   const accept = root.querySelector('[data-review-accept]');
   const reject = root.querySelector('[data-review-reject]');
   const frame = root.querySelector('[data-swipe-frame]');
+  const editButtons = document.querySelectorAll('[data-review-edit]');
   let state;
   let startX = 0;
 
-  async function request(action) {
+  async function request(action, payload = {}) {
     loading.hidden = false;
     accept.disabled = true;
     reject.disabled = true;
@@ -59,7 +60,7 @@ export function reviewClientScript(): string {
       const response = await fetch('/api/jobs/' + jobId + '/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action, ...payload })
       });
       if (!response.ok) throw new Error('Review request failed');
       state = await response.json();
@@ -107,6 +108,14 @@ export function reviewClientScript(): string {
 
   accept?.addEventListener('click', () => request('accept'));
   reject?.addEventListener('click', () => request('reject'));
+  editButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const position = Number(button.dataset.reviewEdit);
+      if (!Number.isFinite(position)) return;
+      request('edit', { position });
+      root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
   frame?.addEventListener('touchstart', (event) => {
     startX = event.changedTouches[0].clientX;
   }, { passive: true });

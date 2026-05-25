@@ -106,3 +106,17 @@ export function rejectCurrentSlot(state: ReviewState, nextCandidate?: string): R
     slots
   };
 }
+
+export function editSlot(state: ReviewState, position: number): ReviewState {
+  const index = state.slots.findIndex((slot) => slot.position === position);
+
+  if (index < 0) {
+    return state;
+  }
+
+  return {
+    ...state,
+    currentIndex: index,
+    complete: false
+  };
+}

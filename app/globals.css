@@ -404,6 +404,28 @@ dd {
   text-decoration: none;
 }
 
+.phoneImageActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+}
+
+.phoneImageActions button,
+.phoneImageActions a {
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 780;
+  text-align: center;
+  text-transform: none;
+}
+
 .phonePage {
   width: min(680px, calc(100vw - 24px));
   margin: 0 auto;
@@ -538,11 +560,6 @@ dd {
   border-radius: 14px;
   background: var(--surface);
   box-shadow: var(--shadow);
-}
-
-.phoneImageCard a {
-  display: block;
-  padding: 14px;
 }
 
 .bareSlot {

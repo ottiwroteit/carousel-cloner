@@ -114,9 +114,14 @@ export default async function PhonePage({ params }: PhonePageProps) {
             return (
               <article className="phoneImageCard" key={image}>
                 <img src={url} alt={`Generated ${slide.title}`} />
-                <a href={url} download={`slide-${String(slide.position).padStart(2, "0")}.${extension}`}>
-                  Save slide {slide.position}
-                </a>
+                <div className="phoneImageActions">
+                  <button type="button" data-review-edit={slide.position}>
+                    Edit slide {slide.position}
+                  </button>
+                  <a href={url} download={`slide-${String(slide.position).padStart(2, "0")}.${extension}`}>
+                    Save slide {slide.position}
+                  </a>
+                </div>
               </article>
             );
           })}

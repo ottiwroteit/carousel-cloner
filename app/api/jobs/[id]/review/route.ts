@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateReviewCandidate } from "@/lib/review/candidates";
 import { applyAcceptedSlotToPackage } from "@/lib/review/package-sync";
-import { acceptCurrentSlot, getOrCreateReviewState, rejectCurrentSlot, saveReviewState } from "@/lib/review/state";
+import { acceptCurrentSlot, editSlot, getOrCreateReviewState, rejectCurrentSlot, saveReviewState } from "@/lib/review/state";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -14,8 +14,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const body = (await request.json()) as { action?: "accept" | "reject" };
+  const body = (await request.json()) as { action?: "accept" | "reject" | "edit"; position?: number };
   const state = await getOrCreateReviewState(id);
+
+  if (body.action === "edit" && typeof body.position === "number") {
+    const next = editSlot(state, body.position);
+    await saveReviewState(next);
+    return NextResponse.json(next);
+  }
 
   if (body.action === "accept") {
     const next = acceptCurrentSlot(state);
