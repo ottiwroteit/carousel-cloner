@@ -66,10 +66,17 @@ describe("generateReviewCandidate", () => {
 
   test("uses public hook text for GPT hero candidates", async () => {
     let prompt = "";
+    root = await mkdtemp(path.join(tmpdir(), "review-candidate-"));
+    const jobDir = path.join(root, "job");
+    await mkdir(path.join(jobDir, "generated"), { recursive: true });
+    await writeFile(
+      path.join(jobDir, "generated", "hero-gpt.png"),
+      await sharp({ create: { width: 1024, height: 1536, channels: 4, background: "#222222" } }).png().toBuffer()
+    );
 
     const candidate = await generateReviewCandidate({
       jobId: "job",
-      root: "/tmp",
+      root,
       nextRejectCount: 3,
       slot: {
         position: 1,
@@ -86,8 +93,11 @@ describe("generateReviewCandidate", () => {
       }
     });
 
-    expect(candidate).toBe("generated/hero-gpt.png");
-    expect(prompt).toContain('Use this exact public overlay text: "Better Memorial Day cookout swaps"');
-    expect(prompt).toContain("Do not include internal production labels");
+    const meta = await sharp(await readFile(path.join(jobDir, candidate))).metadata();
+    expect(candidate).toBe("generated/review-01-better-memorial-day-cookout-swaps-3.png");
+    expect(meta.width).toBe(1080);
+    expect(meta.height).toBe(1920);
+    expect(prompt).toContain('titled "Better Memorial Day cookout swaps"');
+    expect(prompt).toContain("No overlay text");
   });
 });

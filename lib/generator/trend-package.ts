@@ -301,7 +301,7 @@ function pickHeroScene(hook: HookFamily, random: RandomFn): HeroScene {
 function buildHeroPrompt(hookText: string, scene: HeroScene, storeName: string | undefined): string {
   const sceneDescription = scene.description.replaceAll("{store}", storeName ?? "a grocery");
 
-  return `Photorealistic vertical smartphone photo ${sceneDescription}, natural grocery-store lighting, casual TikTok slideshow aesthetic. Add a white rounded text sticker near the top that says exactly: "${hookText}". No emojis in the text. Make it look like a real phone photo, not a designed graphic.`;
+  return `Photorealistic vertical smartphone photo ${sceneDescription}, natural grocery-store lighting, casual TikTok slideshow aesthetic. Leave clean negative space in the center for app-added text. No overlay text, no captions, no words, no graphic design.`;
 }
 
 function productDisplayName(product: Product): string {
