@@ -11,6 +11,7 @@ type ComposeProductImageOptions = {
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
+const CUPBOARD_BACKGROUND_PATH = "/Users/otti/Documents/otti-coded-team/Apps/BARE/assets/infinite-empty-cupboard.png";
 
 const BACKGROUNDS = [
   { top: "#f7f8ef", bottom: "#dfeee5" },
@@ -50,6 +51,21 @@ async function trimProduct(source: Buffer): Promise<Buffer> {
   }
 }
 
+async function productBackground(variant: number): Promise<Buffer> {
+  try {
+    return await sharp(await readFile(CUPBOARD_BACKGROUND_PATH))
+      .resize({
+        width: WIDTH,
+        height: HEIGHT,
+        fit: "cover"
+      })
+      .png()
+      .toBuffer();
+  } catch {
+    return backgroundSvg(variant);
+  }
+}
+
 export async function composeProductImage({
   jobDir,
   sourceRelativePath,
@@ -65,42 +81,25 @@ export async function composeProductImage({
   const product = await sharp(trimmed)
     .resize({
       width: 980,
-      height: 1220,
+      height: 1040,
       fit: "inside",
       withoutEnlargement: false
     })
     .png()
     .toBuffer();
 
-  const backdrop = await sharp(trimmed)
-    .resize({
-      width: WIDTH,
-      height: HEIGHT,
-      fit: "cover"
-    })
-    .blur(36)
-    .modulate({ brightness: 1.18, saturation: 0.7 })
-    .png()
-    .toBuffer();
-
-  const wash = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100%" height="100%" fill="#f8faf4" opacity="0.74"/>
-  </svg>`);
-
   const productMeta = await sharp(product).metadata();
   const productWidth = productMeta.width ?? 720;
   const productHeight = productMeta.height ?? 920;
   const left = Math.round((WIDTH - productWidth) / 2);
-  const top = Math.round((HEIGHT - productHeight) / 2) - 12;
+  const top = productHeight < 420 ? 760 : Math.round((HEIGHT - productHeight) / 2) + 48;
 
   const shadow = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="${WIDTH / 2}" cy="${top + productHeight + 46}" rx="${Math.max(240, productWidth * 0.4)}" ry="38" fill="#111827" opacity="0.14"/>
+    <ellipse cx="${WIDTH / 2}" cy="${top + productHeight + 36}" rx="${Math.max(220, productWidth * 0.38)}" ry="30" fill="#111827" opacity="0.10"/>
   </svg>`);
 
-  const composed = await sharp(backgroundSvg(variant))
+  const composed = await sharp(await productBackground(variant))
     .composite([
-      { input: backdrop, left: 0, top: 0 },
-      { input: wash, left: 0, top: 0 },
       { input: shadow, left: 0, top: 0 },
       { input: product, left, top }
     ])
