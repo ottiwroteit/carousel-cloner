@@ -1,4 +1,4 @@
-import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
+import type { CarouselSlidePlan, GeneratedPackage, StrategyFormat } from "@/lib/types";
 import type { BareProduct } from "@/lib/products/bare-catalog";
 
 type RandomFn = () => number;
@@ -31,6 +31,7 @@ type HookFamily = {
   hookText: (store?: string, occasion?: string) => string;
   captionAngle: string;
   preferredScenes: string[];
+  strategy: StrategyFormat;
 };
 
 type TimingHook = HookFamily & {
@@ -42,6 +43,42 @@ type TimingHook = HookFamily & {
 };
 
 const STORES = ["Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B", "Jewel-Osco"];
+
+const STRATEGY_FORMATS = {
+  storeWeeklyFinds: {
+    id: "store-weekly-finds",
+    name: "Store-specific weekly finds",
+    source: "Provided competitor grocery carousel screenshots plus TikTok performance research.",
+    outlierSignal:
+      "A simple store hook creates immediate context, then the carousel delivers concrete product proof instead of broad wellness advice.",
+    formatPattern: "Store or cart hero with large native overlay -> branded product photo -> BARE scanner proof, repeated for 3 products.",
+    conversionIntent:
+      "Turn grocery curiosity into a reason to use BARE before or during the next shopping trip.",
+    reusableVariables: ["store", "week/timing", "product category", "clean-label benefit"]
+  },
+  benefitAisleFinds: {
+    id: "benefit-aisle-finds",
+    name: "Benefit-led aisle finds",
+    source: "Provided competitor grocery carousel screenshots plus TikTok performance research.",
+    outlierSignal:
+      "The visual is ordinary grocery context, but the hook is a specific shopper problem people already search and save.",
+    formatPattern: "Aisle/cart hero with benefit hook -> branded product photo -> BARE scanner proof, repeated for 3 products.",
+    conversionIntent:
+      "Capture high-intent shoppers who care about ingredients, then show BARE as the verification step.",
+    reusableVariables: ["ingredient concern", "health benefit", "shopper persona", "product category"]
+  },
+  seasonalSwaps: {
+    id: "seasonal-swaps",
+    name: "Seasonal swap list",
+    source: "Provided strategy notes on timing hooks plus TikTok performance research.",
+    outlierSignal:
+      "Timing gives the post current relevance; product proof keeps it useful instead of generic holiday content.",
+    formatPattern: "Seasonal grocery hero -> branded product photo -> BARE scanner proof, repeated for 3 products.",
+    conversionIntent:
+      "Create a near-term reason to save, share, scan, and post before the occasion passes.",
+    reusableVariables: ["occasion", "party context", "dietary need", "store"]
+  }
+} satisfies Record<string, StrategyFormat>;
 
 const HERO_SCENES: HeroScene[] = [
   {
@@ -91,19 +128,22 @@ const STORE_HOOKS: HookFamily[] = [
     title: "always-buy",
     hookText: (store) => `Things I always buy at ${store}`,
     captionAngle: "store-specific cleaner grocery finds",
-    preferredScenes: ["Storefront", "Cart down aisle", "Full shopping cart"]
+    preferredScenes: ["Storefront", "Cart down aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.storeWeeklyFinds
   },
   {
     title: "new-finds",
     hookText: (store) => `New finds at ${store}`,
     captionAngle: "new grocery finds worth checking before the next trip",
-    preferredScenes: ["Storefront", "Shelf wall", "Full shopping cart"]
+    preferredScenes: ["Storefront", "Shelf wall", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.storeWeeklyFinds
   },
   {
     title: "would-grab",
     hookText: (store) => `What I would grab at ${store} this week`,
     captionAngle: "a weekly grocery run shortlist",
-    preferredScenes: ["Storefront", "Cart down aisle", "Full shopping cart"]
+    preferredScenes: ["Storefront", "Cart down aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.storeWeeklyFinds
   }
 ];
 
@@ -112,49 +152,57 @@ const BENEFIT_HOOKS: HookFamily[] = [
     title: "no-dyes",
     hookText: () => "Snacks with no artificial dyes",
     captionAngle: "dye-free snack options",
-    preferredScenes: ["Random grocery aisle", "Shelf wall", "Full shopping cart"]
+    preferredScenes: ["Random grocery aisle", "Shelf wall", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "no-weird-additives",
     hookText: () => "Finds with no weird additives",
     captionAngle: "simple-label grocery finds",
-    preferredScenes: ["Random grocery aisle", "Shelf wall", "Cart down aisle"]
+    preferredScenes: ["Random grocery aisle", "Shelf wall", "Cart down aisle"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "skin",
     hookText: () => "Cleaner snacks for better skin",
     captionAngle: "cleaner snack swaps tied to skin-conscious routines",
-    preferredScenes: ["Random grocery aisle", "Hand holding product", "Full shopping cart"]
+    preferredScenes: ["Random grocery aisle", "Hand holding product", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "protein",
     hookText: () => "High-protein snacks with simple ingredients",
     captionAngle: "protein-forward snacks with simple ingredients",
-    preferredScenes: ["Shelf wall", "Random grocery aisle", "Full shopping cart"]
+    preferredScenes: ["Shelf wall", "Random grocery aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "anti-inflammatory",
     hookText: () => "Anti-inflammatory grocery finds",
     captionAngle: "grocery finds that fit an anti-inflammatory shopping angle",
-    preferredScenes: ["Random grocery aisle", "Cart down aisle", "Shelf wall"]
+    preferredScenes: ["Random grocery aisle", "Cart down aisle", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "sweet-treats",
     hookText: () => "Sweet treats with better ingredients",
     captionAngle: "better-ingredient sweet treats",
-    preferredScenes: ["Shelf wall", "Seasonal display", "Full shopping cart"]
+    preferredScenes: ["Shelf wall", "Seasonal display", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "toddler",
     hookText: () => "Toddler snacks with cleaner labels",
     captionAngle: "cleaner-label toddler snacks",
-    preferredScenes: ["Kid in cart", "Random grocery aisle", "Full shopping cart"]
+    preferredScenes: ["Kid in cart", "Random grocery aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   },
   {
     title: "pantry-swaps",
     hookText: () => "Pantry swaps with simple ingredients",
     captionAngle: "simple-ingredient pantry swaps",
-    preferredScenes: ["Shelf wall", "Random grocery aisle", "Full shopping cart"]
+    preferredScenes: ["Shelf wall", "Random grocery aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
   }
 ];
 
@@ -168,7 +216,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 15,
     hookText: () => "Better Super Bowl snacks",
     captionAngle: "cleaner party snacks for game day",
-    preferredScenes: ["Full shopping cart", "Seasonal display", "Random grocery aisle"]
+    preferredScenes: ["Full shopping cart", "Seasonal display", "Random grocery aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "valentines",
@@ -179,7 +228,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 15,
     hookText: () => "Valentine's sweet treats with better ingredients",
     captionAngle: "better-ingredient Valentine's treats",
-    preferredScenes: ["Seasonal display", "Shelf wall", "Full shopping cart"]
+    preferredScenes: ["Seasonal display", "Shelf wall", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "easter",
@@ -190,7 +240,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 20,
     hookText: () => "Cleaner Easter basket finds",
     captionAngle: "cleaner seasonal treats and basket ideas",
-    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"]
+    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "memorial-day",
@@ -201,7 +252,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 31,
     hookText: () => "Better Memorial Day cookout swaps",
     captionAngle: "cleaner cookout and party swaps",
-    preferredScenes: ["Full shopping cart", "Seasonal display", "Cart down aisle"]
+    preferredScenes: ["Full shopping cart", "Seasonal display", "Cart down aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "back-to-school",
@@ -212,7 +264,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 10,
     hookText: () => "Back-to-school snacks with cleaner labels",
     captionAngle: "cleaner lunchbox and after-school snacks",
-    preferredScenes: ["Kid in cart", "Full shopping cart", "Random grocery aisle"]
+    preferredScenes: ["Kid in cart", "Full shopping cart", "Random grocery aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "football",
@@ -223,7 +276,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 30,
     hookText: () => "Better football snack finds",
     captionAngle: "cleaner snacks for football weekends",
-    preferredScenes: ["Full shopping cart", "Seasonal display", "Random grocery aisle"]
+    preferredScenes: ["Full shopping cart", "Seasonal display", "Random grocery aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "labor-day",
@@ -234,7 +288,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 10,
     hookText: () => "Better Labor Day snack swaps",
     captionAngle: "cleaner long-weekend snacks and cookout swaps",
-    preferredScenes: ["Full shopping cart", "Seasonal display", "Cart down aisle"]
+    preferredScenes: ["Full shopping cart", "Seasonal display", "Cart down aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "halloween",
@@ -245,7 +300,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 31,
     hookText: () => "Halloween treats with better ingredients",
     captionAngle: "better-ingredient Halloween treats",
-    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"]
+    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "christmas",
@@ -256,7 +312,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 26,
     hookText: () => "Holiday snacks with cleaner labels",
     captionAngle: "cleaner holiday snacks and treats",
-    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"]
+    preferredScenes: ["Seasonal display", "Full shopping cart", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   },
   {
     title: "new-years",
@@ -267,7 +324,8 @@ const TIMING_HOOKS: TimingHook[] = [
     endDay: 10,
     hookText: () => "Cleaner grocery finds for a reset",
     captionAngle: "simple-ingredient reset grocery finds",
-    preferredScenes: ["Full shopping cart", "Random grocery aisle", "Cart down aisle"]
+    preferredScenes: ["Full shopping cart", "Random grocery aisle", "Cart down aisle"],
+    strategy: STRATEGY_FORMATS.seasonalSwaps
   }
 ];
 
@@ -408,10 +466,12 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
       return `Insert BARE app screenshot: ${slide.productName}`;
     }),
     postingNotes: [
+      `Format: ${hook.strategy.name}.`,
       "Use the generated hero image first.",
       "After every product photo, insert your matching BARE app screenshot.",
       "Check product label spelling before posting."
     ],
+    strategy: hook.strategy,
     imagePrompts,
     generatedImages: [],
     carouselSlides

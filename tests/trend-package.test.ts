@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
 
 describe("buildTrendPackage", () => {
-  test("creates a randomized hero, product, and BARE screenshot cadence", () => {
+  test("creates a format-backed hero, product, and BARE screenshot cadence", () => {
     const pkg = buildTrendPackage({
       now: new Date("2026-01-15T12:00:00Z"),
       random: () => 0,
@@ -44,6 +44,8 @@ describe("buildTrendPackage", () => {
     });
 
     expect(pkg.title).toBe("Things I always buy at Trader Joe's");
+    expect(pkg.strategy?.id).toBe("store-weekly-finds");
+    expect(pkg.strategy?.formatPattern).toContain("BARE scanner proof");
     expect(pkg.carouselSlides?.[0].title).toBe("Things I always buy at Trader Joe's");
     expect(pkg.imagePrompts).toHaveLength(4);
     expect(pkg.carouselSlides?.map((slide) => slide.kind)).toEqual([

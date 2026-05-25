@@ -86,7 +86,7 @@ export default function Home() {
           <p className="eyebrow">Local-first social automation</p>
           <h1>Carousel Cloner</h1>
           <p className="lede">
-            Paste a competitor TikTok slideshow URL, extract what we can, then generate a randomized grocery carousel
+            Paste a competitor TikTok slideshow URL, extract what we can, then generate a format-backed grocery carousel
             package you can hand off to your phone.
           </p>
         </div>
@@ -148,6 +148,20 @@ export default function Home() {
               <dd>{analysis.whyItWorks}</dd>
             </dl>
           </article>
+
+          {generated.strategy ? (
+            <article className="panel">
+              <h2>Strategy Format</h2>
+              <dl>
+                <dt>Format</dt>
+                <dd>{generated.strategy.name}</dd>
+                <dt>Pattern</dt>
+                <dd>{generated.strategy.formatPattern}</dd>
+                <dt>Intent</dt>
+                <dd>{generated.strategy.conversionIntent}</dd>
+              </dl>
+            </article>
+          ) : null}
 
           <article className="panel">
             <h2>Carousel Order</h2>

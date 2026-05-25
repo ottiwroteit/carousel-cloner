@@ -25,9 +25,20 @@ export type GeneratedPackage = {
   hashtags: string[];
   slideText: string[];
   postingNotes: string[];
+  strategy?: StrategyFormat;
   imagePrompts?: string[];
   generatedImages?: string[];
   carouselSlides?: CarouselSlidePlan[];
+};
+
+export type StrategyFormat = {
+  id: string;
+  name: string;
+  source: string;
+  outlierSignal: string;
+  formatPattern: string;
+  conversionIntent: string;
+  reusableVariables: string[];
 };
 
 export type CarouselSlidePlan = {
