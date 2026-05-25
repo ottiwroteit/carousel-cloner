@@ -301,7 +301,7 @@ function pickHeroScene(hook: HookFamily, random: RandomFn): HeroScene {
 function buildHeroPrompt(hookText: string, scene: HeroScene, storeName: string | undefined): string {
   const sceneDescription = scene.description.replaceAll("{store}", storeName ?? "a grocery");
 
-  return `Photorealistic vertical smartphone photo ${sceneDescription}, natural grocery-store lighting, casual TikTok slideshow aesthetic. Leave clean negative space in the center for app-added text. No overlay text, no captions, no words, no graphic design.`;
+  return `Photorealistic vertical smartphone photo ${sceneDescription}, natural grocery-store lighting, casual TikTok slideshow aesthetic. Leave clean negative space in the center for app-added text. No overlay text, no captions, no words, no graphic design. Do not show raw meat, raw chicken, raw poultry, uncooked fish, butcher cases, meat trays, or bloody/uncooked food.`;
 }
 
 function productDisplayName(product: Product): string {

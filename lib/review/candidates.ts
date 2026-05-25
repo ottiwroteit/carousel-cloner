@@ -18,7 +18,7 @@ function safeName(value: string): string {
 
 function gptPrompt(slot: ReviewSlot): string {
   if (slot.kind === "storefront-hook") {
-    return `Photorealistic vertical 9:16 smartphone hero background for a TikTok grocery carousel titled "${slot.title}". Make it polished and post-ready, with natural light and a clean grocery shopping context. Leave clean negative space in the center for app-added text. No overlay text, no captions, no words, no graphic design, no internal production labels, no snake_case text, no scene names, no filenames.`;
+    return `Photorealistic vertical 9:16 smartphone hero background for a TikTok grocery carousel titled "${slot.title}". Make it polished and post-ready, with natural light and a clean grocery shopping context. Leave clean negative space in the center for app-added text. No overlay text, no captions, no words, no graphic design, no internal production labels, no snake_case text, no scene names, no filenames. Do not show raw meat, raw chicken, raw poultry, uncooked fish, butcher cases, meat trays, or bloody/uncooked food.`;
   }
 
   return `Create a polished vertical 9:16 product photoshoot-style grocery image for "${slot.productName}". The product should look premium, clean, centered, and brand-safe, with a realistic grocery, kitchen counter, picnic, or cookout background. Do not invent fake label text; keep product branding plausible and tasteful.`;

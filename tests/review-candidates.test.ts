@@ -99,5 +99,6 @@ describe("generateReviewCandidate", () => {
     expect(meta.height).toBe(1920);
     expect(prompt).toContain('titled "Better Memorial Day cookout swaps"');
     expect(prompt).toContain("No overlay text");
+    expect(prompt).toContain("Do not show raw meat");
   });
 });

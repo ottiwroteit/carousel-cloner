@@ -20,6 +20,14 @@ type CatalogOptions = {
 
 const WITH_IMAGES_FILE = "bare_products_with_images.csv";
 const ALL_SCANNABLE_FILE = "bare_products_all_scannable.csv";
+const UNSAFE_SCREEN_TERMS = [
+  /\braw\b/i,
+  /\bchicken\s+(breast|thigh|tender|tenders|wing|wings|drumstick|cutlet|cutlets)\b/i,
+  /\bground\s+(beef|chicken|turkey|pork)\b/i,
+  /\b(steak|pork\s+chop|pork\s+chops|pork\s+belly)\b/i,
+  /\bspam\b/i,
+  /\bbacon\b/i
+];
 
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
@@ -68,6 +76,7 @@ function isMarketable(row: Record<string, string>): boolean {
   const brand = row.brand?.trim() ?? "";
   const barcode = row.barcode?.trim() ?? "";
   const imageUrl = row.image_url?.trim() ?? "";
+  const screenText = `${name} ${row.category ?? ""} ${row.summary ?? ""}`;
 
   if (!barcode || !brand || !name || !imageUrl) {
     return false;
@@ -78,6 +87,10 @@ function isMarketable(row: Record<string, string>): boolean {
   }
 
   if (brand.toLowerCase() === "unknown") {
+    return false;
+  }
+
+  if (UNSAFE_SCREEN_TERMS.some((term) => term.test(screenText))) {
     return false;
   }
 

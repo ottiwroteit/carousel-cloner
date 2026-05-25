@@ -56,6 +56,7 @@ describe("buildTrendPackage", () => {
       "bare-screenshot"
     ]);
     expect(pkg.imagePrompts?.[0]).toContain("No overlay text");
+    expect(pkg.imagePrompts?.[0]).toContain("Do not show raw meat");
     expect(pkg.imagePrompts?.[0]).not.toContain("Things I always buy at Trader Joe's");
     expect(pkg.slideText.join("\n")).not.toMatch(/\p{Emoji_Presentation}/u);
     expect(pkg.imagePrompts?.[1]).toContain('"Siete Sea Salt Grain Free Tortilla Chips"');

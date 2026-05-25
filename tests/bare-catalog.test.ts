@@ -23,6 +23,8 @@ describe("readBareCatalog", () => {
 456,Unknown,Good Product,Snacks,90,Excellent,https://example.com/unknown.png,manual,Skip,now,now
 789,Brand,789,Snacks,90,Excellent,https://example.com/bad.png,manual,Skip,now,now
 999,Brand,Missing Image,Snacks,90,Excellent,,manual,Skip,now,now
+777,Kirkland Signature,Hickory Smoked Bacon,Protein,48,Limit,https://example.com/bacon.png,manual,"Pork belly, salt, sugar.",now,now
+888,Fresh Brand,Chicken Breast,Protein,90,Excellent,https://example.com/chicken.png,manual,Raw chicken breast package,now,now
 `,
       "utf8"
     );
