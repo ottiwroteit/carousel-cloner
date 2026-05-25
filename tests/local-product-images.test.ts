@@ -101,14 +101,20 @@ describe("local product images", () => {
       provider: "local-real-products"
     });
     expect(pkg.generatedImages).toEqual([
-      "generated/slide-01.svg",
+      "generated/slide-01.png",
       "generated/slide-02.png",
+      "generated/slide-03-bare-proof.png",
       "generated/slide-03.png",
-      "generated/slide-04.png"
+      "generated/slide-05-bare-proof.png",
+      "generated/slide-04.png",
+      "generated/slide-07-bare-proof.png"
     ]);
 
     const productMeta = await sharp(await readFile(path.join(readBack.dir, "generated/slide-02.png"))).metadata();
     expect(productMeta.width).toBe(1080);
     expect(productMeta.height).toBe(1920);
+    const proofMeta = await sharp(await readFile(path.join(readBack.dir, "generated/slide-03-bare-proof.png"))).metadata();
+    expect(proofMeta.width).toBe(1080);
+    expect(proofMeta.height).toBe(1920);
   });
 });

@@ -18,6 +18,7 @@ type Product = {
   imageUrl?: string;
   score?: number | null;
   label?: string;
+  summary?: string;
 };
 
 type HeroScene = {
@@ -384,7 +385,8 @@ function productFromBare(product: BareProduct): Product {
     barcode: product.barcode,
     imageUrl: product.imageUrl,
     score: product.score,
-    label: product.label
+    label: product.label,
+    summary: product.summary
   };
 }
 
@@ -430,6 +432,7 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
       bareImageUrl: product.imageUrl,
       bareScore: product.score,
       bareLabel: product.label,
+      bareSummary: product.summary,
       prompt: productPrompt(product, storeName)
     });
     carouselSlides.push({
@@ -440,7 +443,8 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
       barcode: product.barcode,
       bareImageUrl: product.imageUrl,
       bareScore: product.score,
-      bareLabel: product.label
+      bareLabel: product.label,
+      bareSummary: product.summary
     });
   }
 

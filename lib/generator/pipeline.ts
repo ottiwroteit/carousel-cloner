@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
+import { completeCarouselImages } from "@/lib/generator/complete-carousel-images";
 import { composeProductImage } from "@/lib/generator/compose-product-image";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
 import { generateSlideImages, renderSlideSvg } from "@/lib/generator/slides";
@@ -281,6 +282,8 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
       );
     }
   }
+
+  generated = await completeCarouselImages({ jobDir: snapshot.dir, pkg: generated });
 
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);

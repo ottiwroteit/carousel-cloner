@@ -124,10 +124,13 @@ describe("processJob", () => {
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
       generatedImages: [
-        "generated/slide-01.svg",
+        "generated/slide-01.png",
         "generated/slide-02.png",
+        "generated/slide-03-bare-proof.png",
         "generated/slide-03.png",
-        "generated/slide-04.png"
+        "generated/slide-05-bare-proof.png",
+        "generated/slide-04.png",
+        "generated/slide-07-bare-proof.png"
       ]
     });
     expect((readBack.artifacts["package.json"] as { carouselSlides: Array<{ kind: string }> }).carouselSlides.map((slide) => slide.kind)).toEqual([
@@ -182,10 +185,13 @@ describe("processJob", () => {
     });
     expect(readBack.artifacts["package.json"]).toMatchObject({
       generatedImages: [
-        "generated/slide-01.svg",
-        "generated/slide-02.svg",
-        "generated/slide-03.svg",
-        "generated/slide-04.svg"
+        "generated/slide-01.png",
+        "generated/slide-02.png",
+        "generated/slide-03-bare-proof.png",
+        "generated/slide-04.png",
+        "generated/slide-05-bare-proof.png",
+        "generated/slide-06.png",
+        "generated/slide-07-bare-proof.png"
       ]
     });
   });

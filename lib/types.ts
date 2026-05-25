@@ -51,6 +51,7 @@ export type CarouselSlidePlan = {
   bareImageUrl?: string;
   bareScore?: number | null;
   bareLabel?: string;
+  bareSummary?: string;
   prompt?: string;
   generatedImage?: string;
 };
