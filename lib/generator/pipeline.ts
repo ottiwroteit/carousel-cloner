@@ -138,25 +138,23 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const catalogReader = options.readBareCatalog ?? readBareCatalog;
-  let catalogProducts;
-  try {
-    catalogProducts = selectBareProducts(await catalogReader(), 3);
-    await writeJobArtifact(
-      id,
-      "bare-product-selection.json",
-      catalogProducts.map((product) => ({
-        barcode: product.barcode,
-        brand: product.brand,
-        productName: product.productName,
-        score: product.score,
-        label: product.label,
-        imageUrl: product.imageUrl
-      })),
-      root
-    );
-  } catch {
-    catalogProducts = undefined;
+  const catalogProducts = selectBareProducts(await catalogReader(), 3);
+  if (catalogProducts.length === 0) {
+    throw new Error("BARE catalog did not return any marketable products with images.");
   }
+  await writeJobArtifact(
+    id,
+    "bare-product-selection.json",
+    catalogProducts.map((product) => ({
+      barcode: product.barcode,
+      brand: product.brand,
+      productName: product.productName,
+      score: product.score,
+      label: product.label,
+      imageUrl: product.imageUrl
+    })),
+    root
+  );
 
   let generated = buildTrendPackage({ bareProducts: catalogProducts });
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);

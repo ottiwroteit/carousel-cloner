@@ -1,7 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
+import sharp from "sharp";
 import { createJob, readJob, readJobTextArtifact } from "@/lib/jobs/store";
 import { processJob } from "@/lib/generator/pipeline";
 import type { StyleProfile } from "@/lib/types";
@@ -19,6 +20,71 @@ const profile: StyleProfile = {
 
 let root: string | undefined;
 
+function bareCatalogProducts() {
+  return [
+    {
+      barcode: "111",
+      brand: "Siete",
+      productName: "Sea Salt Tortilla Chips",
+      category: "Snacks",
+      score: 95,
+      label: "Excellent",
+      imageUrl: "https://example.com/siete.png",
+      source: "manual",
+      summary: ""
+    },
+    {
+      barcode: "222",
+      brand: "Primal Kitchen",
+      productName: "Ketchup",
+      category: "Pantry",
+      score: 90,
+      label: "Excellent",
+      imageUrl: "https://example.com/ketchup.png",
+      source: "manual",
+      summary: ""
+    },
+    {
+      barcode: "333",
+      brand: "Spindrift",
+      productName: "Lemon Sparkling Water",
+      category: "Beverages",
+      score: 88,
+      label: "Good",
+      imageUrl: "https://example.com/spindrift.png",
+      source: "manual",
+      summary: ""
+    }
+  ];
+}
+
+async function writeFakeProductSource(jobDir: string, index: number): Promise<string> {
+  const generatedDir = path.join(jobDir, "generated");
+  await mkdir(generatedDir, { recursive: true });
+  const relativePath = path.join("generated", `source-${index}.jpg`);
+  await writeFile(
+    path.join(jobDir, relativePath),
+    await sharp({
+      create: {
+        width: 900,
+        height: 900,
+        channels: 4,
+        background: "#ffffff"
+      }
+    })
+      .composite([
+        {
+          input: Buffer.from('<svg width="700" height="700"><rect width="700" height="700" fill="#111111"/></svg>'),
+          left: 100,
+          top: 100
+        }
+      ])
+      .jpeg()
+      .toBuffer()
+  );
+  return relativePath;
+}
+
 afterEach(async () => {
   if (root) {
     await rm(root, { recursive: true, force: true });
@@ -33,7 +99,13 @@ describe("processJob", () => {
 
     const snapshot = await processJob(job.status.id, {
       root,
-      readBareCatalog: async () => [],
+      readBareCatalog: async () => bareCatalogProducts(),
+      findWebProductImage: async ({ jobDir, imageUrl, index, productName }) => ({
+        sourceUrl: imageUrl as string,
+        pageUrl: `bare://product/${index}`,
+        title: productName,
+        relativePath: await writeFakeProductSource(jobDir, index)
+      }),
       extract: async () => ({
         ok: false,
         error: {
@@ -53,9 +125,9 @@ describe("processJob", () => {
     expect(readBack.artifacts["package.json"]).toMatchObject({
       generatedImages: [
         "generated/slide-01.svg",
-        "generated/slide-02.svg",
-        "generated/slide-03.svg",
-        "generated/slide-04.svg"
+        "generated/slide-02.png",
+        "generated/slide-03.png",
+        "generated/slide-04.png"
       ]
     });
     expect((readBack.artifacts["package.json"] as { carouselSlides: Array<{ kind: string }> }).carouselSlides.map((slide) => slide.kind)).toEqual([
@@ -68,8 +140,8 @@ describe("processJob", () => {
       "bare-screenshot"
     ]);
     expect(readBack.artifacts["image-generation.json"]).toMatchObject({
-      provider: "local-svg",
-      reason: "Local image mode is enabled."
+      provider: "local-real-products",
+      reason: "Local mode is using BARE product images."
     });
     expect(captions).toContain("Main caption:");
   });
@@ -82,7 +154,13 @@ describe("processJob", () => {
       root,
       hasOpenAIKey: true,
       useOpenAIImages: true,
-      readBareCatalog: async () => [],
+      readBareCatalog: async () => bareCatalogProducts(),
+      findWebProductImage: async ({ jobDir, imageUrl, index, productName }) => ({
+        sourceUrl: imageUrl as string,
+        pageUrl: `bare://product/${index}`,
+        title: productName,
+        relativePath: await writeFakeProductSource(jobDir, index)
+      }),
       extract: async () => ({
         ok: false,
         error: {
@@ -112,6 +190,25 @@ describe("processJob", () => {
     });
   });
 
+  test("requires BARE catalog products instead of inventing fallback products", async () => {
+    root = await mkdtemp(path.join(tmpdir(), "carousel-pipeline-"));
+    const job = await createJob({ url: "https://www.tiktok.com/@creator/video/1", profile }, root);
+
+    await expect(
+      processJob(job.status.id, {
+        root,
+        readBareCatalog: async () => [],
+        extract: async () => ({
+          ok: false,
+          error: {
+            code: "blocked",
+            message: "TikTok blocked direct extraction for this URL."
+          }
+        })
+      })
+    ).rejects.toThrow("BARE catalog did not return any marketable products with images.");
+  });
+
   test("uses BARE catalog products when available", async () => {
     root = await mkdtemp(path.join(tmpdir(), "carousel-pipeline-"));
     const job = await createJob({ url: "https://www.tiktok.com/@creator/video/1", profile }, root);
@@ -120,41 +217,7 @@ describe("processJob", () => {
       root,
       hasOpenAIKey: true,
       useOpenAIImages: true,
-      readBareCatalog: async () => [
-        {
-          barcode: "111",
-          brand: "Siete",
-          productName: "Sea Salt Tortilla Chips",
-          category: "Snacks",
-          score: 95,
-          label: "Excellent",
-          imageUrl: "https://example.com/siete.png",
-          source: "manual",
-          summary: ""
-        },
-        {
-          barcode: "222",
-          brand: "Primal Kitchen",
-          productName: "Ketchup",
-          category: "Pantry",
-          score: 90,
-          label: "Excellent",
-          imageUrl: "https://example.com/ketchup.png",
-          source: "manual",
-          summary: ""
-        },
-        {
-          barcode: "333",
-          brand: "Spindrift",
-          productName: "Lemon Sparkling Water",
-          category: "Beverages",
-          score: 88,
-          label: "Good",
-          imageUrl: "https://example.com/spindrift.png",
-          source: "manual",
-          summary: ""
-        }
-      ],
+      readBareCatalog: async () => bareCatalogProducts(),
       extract: async () => ({
         ok: false,
         error: {

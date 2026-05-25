@@ -43,57 +43,6 @@ type TimingHook = HookFamily & {
 
 const STORES = ["Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B", "Jewel-Osco"];
 
-const PRODUCTS: Product[] = [
-  {
-    brand: "Siete",
-    name: "Sea Salt Grain Free Tortilla Chips",
-    shortName: "Siete Sea Salt Tortilla Chips",
-    searchName: "Siete Sea Salt Grain Free Tortilla Chips product package"
-  },
-  {
-    brand: "Boulder Canyon",
-    name: "Olive Oil Kettle Cooked Potato Chips",
-    shortName: "Boulder Canyon Olive Oil Chips",
-    searchName: "Boulder Canyon Olive Oil Kettle Cooked Potato Chips product package"
-  },
-  {
-    brand: "Primal Kitchen",
-    name: "Organic Unsweetened Ketchup",
-    shortName: "Primal Kitchen Ketchup",
-    searchName: "Primal Kitchen Organic Unsweetened Ketchup product package"
-  },
-  {
-    brand: "Spindrift",
-    name: "Sparkling Water Lemon",
-    shortName: "Spindrift Lemon Sparkling Water",
-    searchName: "Spindrift Lemon Sparkling Water product package"
-  },
-  {
-    brand: "Chomps",
-    name: "Original Beef Stick",
-    shortName: "Chomps Original Beef Stick",
-    searchName: "Chomps Original Beef Stick product package"
-  },
-  {
-    brand: "That's it.",
-    name: "Apple + Strawberry Fruit Bar",
-    shortName: "That's it. Apple Strawberry Bar",
-    searchName: "That's it Apple Strawberry Fruit Bar product package"
-  },
-  {
-    brand: "LesserEvil",
-    name: "Himalayan Pink Salt Popcorn",
-    shortName: "LesserEvil Pink Salt Popcorn",
-    searchName: "LesserEvil Himalayan Pink Salt Popcorn product package"
-  },
-  {
-    brand: "Simple Mills",
-    name: "Almond Flour Crackers Fine Ground Sea Salt",
-    shortName: "Simple Mills Sea Salt Crackers",
-    searchName: "Simple Mills Almond Flour Crackers Fine Ground Sea Salt product package"
-  }
-];
-
 const HERO_SCENES: HeroScene[] = [
   {
     title: "Storefront",
@@ -368,19 +317,6 @@ function sentenceCase(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-function selectProducts(random: RandomFn): Product[] {
-  const remaining = [...PRODUCTS];
-  const selected: Product[] = [];
-
-  while (selected.length < 3 && remaining.length) {
-    const product = pick(remaining, random);
-    selected.push(product);
-    remaining.splice(remaining.indexOf(product), 1);
-  }
-
-  return selected;
-}
-
 function productFromBare(product: BareProduct): Product {
   return {
     brand: product.brand,
@@ -414,7 +350,7 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
   const scene = pickHeroScene(hook, random);
   const storeName = scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined;
   const hookText = hook.hookText(storeName, occasion);
-  const products = bareProducts?.length ? bareProducts.slice(0, 3).map(productFromBare) : selectProducts(random);
+  const products = bareProducts?.slice(0, 3).map(productFromBare) ?? [];
   const carouselSlides: CarouselSlidePlan[] = [
     {
       position: 1,
