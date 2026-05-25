@@ -355,7 +355,7 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
     {
       position: 1,
       kind: "storefront-hook",
-      title: `${scene.title} hook`,
+      title: hookText,
       storeName,
       prompt: buildHeroPrompt(hookText, scene, storeName)
     }
@@ -408,7 +408,7 @@ export function buildTrendPackage({ now = new Date(), random = Math.random, bare
       return `Insert BARE app screenshot: ${slide.productName}`;
     }),
     postingNotes: [
-      `Use the generated ${scene.title.toLowerCase()} image first.`,
+      "Use the generated hero image first.",
       "After every product photo, insert your matching BARE app screenshot.",
       "Check product label spelling before posting."
     ],

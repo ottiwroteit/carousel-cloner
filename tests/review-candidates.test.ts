@@ -63,4 +63,31 @@ describe("generateReviewCandidate", () => {
 
     expect(candidate).toBe("generated/gpt.png");
   });
+
+  test("uses public hook text for GPT hero candidates", async () => {
+    let prompt = "";
+
+    const candidate = await generateReviewCandidate({
+      jobId: "job",
+      root: "/tmp",
+      nextRejectCount: 3,
+      slot: {
+        position: 1,
+        title: "Better Memorial Day cookout swaps",
+        kind: "storefront-hook",
+        currentCandidate: "generated/source.png",
+        sourceImage: "generated/source.png",
+        rejectedImages: [],
+        rejectCount: 2
+      },
+      generateOpenAIImages: async ({ prompts }) => {
+        prompt = prompts[0];
+        return ["generated/hero-gpt.png"];
+      }
+    });
+
+    expect(candidate).toBe("generated/hero-gpt.png");
+    expect(prompt).toContain('Use this exact public overlay text: "Better Memorial Day cookout swaps"');
+    expect(prompt).toContain("Do not include internal production labels");
+  });
 });

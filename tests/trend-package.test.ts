@@ -44,6 +44,7 @@ describe("buildTrendPackage", () => {
     });
 
     expect(pkg.title).toBe("Things I always buy at Trader Joe's");
+    expect(pkg.carouselSlides?.[0].title).toBe("Things I always buy at Trader Joe's");
     expect(pkg.imagePrompts).toHaveLength(4);
     expect(pkg.carouselSlides?.map((slide) => slide.kind)).toEqual([
       "storefront-hook",
@@ -69,6 +70,8 @@ describe("buildTrendPackage", () => {
     expect(pkg.carouselSlides?.map((slide) => slide.kind)).toEqual(["storefront-hook"]);
     expect(pkg.imagePrompts).toHaveLength(1);
     expect(pkg.slideText).toEqual(["Things I always buy at Trader Joe's"]);
+    expect(pkg.postingNotes.join("\n")).not.toContain("storefront");
+    expect(pkg.postingNotes.join("\n")).not.toContain("hook");
   });
 
   test("can create benefit hooks without a named store", () => {
