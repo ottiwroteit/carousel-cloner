@@ -35,6 +35,21 @@ function backgroundSvg(variant: number): Buffer {
 </svg>`);
 }
 
+async function trimProduct(source: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(source)
+      .rotate()
+      .trim({
+        background: "#ffffff",
+        threshold: 24
+      })
+      .png()
+      .toBuffer();
+  } catch {
+    return sharp(source).rotate().png().toBuffer();
+  }
+}
+
 export async function composeProductImage({
   jobDir,
   sourceRelativePath,
@@ -44,30 +59,48 @@ export async function composeProductImage({
   const sourcePath = path.join(jobDir, sourceRelativePath);
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
+  const source = await readFile(sourcePath);
+  const trimmed = await trimProduct(source);
 
-  const product = await sharp(await readFile(sourcePath))
-    .rotate()
+  const product = await sharp(trimmed)
     .resize({
-      width: 820,
-      height: 1120,
+      width: 980,
+      height: 1220,
       fit: "inside",
-      withoutEnlargement: true
+      withoutEnlargement: false
     })
     .png()
     .toBuffer();
+
+  const backdrop = await sharp(trimmed)
+    .resize({
+      width: WIDTH,
+      height: HEIGHT,
+      fit: "cover"
+    })
+    .blur(36)
+    .modulate({ brightness: 1.18, saturation: 0.7 })
+    .png()
+    .toBuffer();
+
+  const wash = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100%" height="100%" fill="#f8faf4" opacity="0.74"/>
+  </svg>`);
 
   const productMeta = await sharp(product).metadata();
   const productWidth = productMeta.width ?? 720;
   const productHeight = productMeta.height ?? 920;
   const left = Math.round((WIDTH - productWidth) / 2);
-  const top = Math.round((HEIGHT - productHeight) / 2) - 40;
+  const top = Math.round((HEIGHT - productHeight) / 2) - 12;
 
   const shadow = Buffer.from(`<svg width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-    <ellipse cx="${WIDTH / 2}" cy="${top + productHeight + 58}" rx="${Math.max(260, productWidth * 0.42)}" ry="54" fill="#111827" opacity="0.22"/>
+    <ellipse cx="${WIDTH / 2}" cy="${top + productHeight + 46}" rx="${Math.max(240, productWidth * 0.4)}" ry="38" fill="#111827" opacity="0.14"/>
   </svg>`);
 
   const composed = await sharp(backgroundSvg(variant))
     .composite([
+      { input: backdrop, left: 0, top: 0 },
+      { input: wash, left: 0, top: 0 },
       { input: shadow, left: 0, top: 0 },
       { input: product, left, top }
     ])
