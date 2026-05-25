@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { readJob, readJobTextArtifact } from "@/lib/jobs/store";
 import { getPhoneBaseUrl } from "@/lib/network";
 import { captionCopyScript } from "@/lib/phone/caption-copy";
+import { getInitialReviewPreview, reviewClientScript } from "@/lib/phone/review-preview";
+import { getOrCreateReviewState } from "@/lib/review/state";
 import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 type PhonePageProps = {
@@ -18,8 +20,7 @@ export default async function PhonePage({ params }: PhonePageProps) {
     const captions = await readJobTextArtifact(id, "captions.txt");
     const pkg = job.artifacts["package.json"] as GeneratedPackage;
     const slides = pkg.carouselSlides ?? [];
-    const reviewSlides = slides.filter((slide) => slide.kind !== "bare-screenshot" && slide.generatedImage);
-    const firstReviewSlide = reviewSlides[0];
+    const review = getInitialReviewPreview(await getOrCreateReviewState(id));
     const requestHeaders = await headers();
     const host = requestHeaders.get("host") ?? "localhost:3000";
     const proto = requestHeaders.get("x-forwarded-proto") ?? "http";
@@ -59,16 +60,17 @@ export default async function PhonePage({ params }: PhonePageProps) {
           <div className="swipeReviewHeader">
             <div>
               <p className="eyebrow" data-review-step>
-                {firstReviewSlide?.kind === "storefront-hook" ? "Hero slide" : "Product slide"}
+                {review.step}
               </p>
-              <h2 data-review-title>{firstReviewSlide?.productName ?? firstReviewSlide?.title ?? "Review"}</h2>
+              <h2 data-review-title>{review.title}</h2>
             </div>
-            <span data-review-count>{reviewSlides.length ? `1/${reviewSlides.length}` : "0/0"}</span>
+            <span data-review-count>{review.count}</span>
           </div>
           <div className="swipeFrame" data-swipe-frame>
             <img
               data-review-image
-              src={firstReviewSlide?.generatedImage ? `/api/jobs/${id}/files/${firstReviewSlide.generatedImage}` : undefined}
+              src={review.image ? `/api/jobs/${id}/files/${review.image}` : undefined}
+              hidden={review.complete}
               alt="Current carousel candidate"
             />
             <div className="swipeLoading" data-review-loading hidden>
@@ -76,13 +78,13 @@ export default async function PhonePage({ params }: PhonePageProps) {
             </div>
           </div>
           <p className="mutedText" data-review-detail>
-            Swipe right to keep. Swipe left to try another option.
+            {review.detail}
           </p>
           <div className="swipeButtons">
-            <button type="button" data-review-reject>
+            <button type="button" data-review-reject disabled={review.complete}>
               Try another
             </button>
-            <button type="button" data-review-accept>
+            <button type="button" data-review-accept disabled={review.complete}>
               Keep
             </button>
           </div>
@@ -131,90 +133,7 @@ export default async function PhonePage({ params }: PhonePageProps) {
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => {
-  const root = document.querySelector('[data-review-root]');
-  if (!root) return;
-
-  const jobId = root.dataset.jobId;
-  const image = root.querySelector('[data-review-image]');
-  const title = root.querySelector('[data-review-title]');
-  const step = root.querySelector('[data-review-step]');
-  const count = root.querySelector('[data-review-count]');
-  const detail = root.querySelector('[data-review-detail]');
-  const loading = root.querySelector('[data-review-loading]');
-  const accept = root.querySelector('[data-review-accept]');
-  const reject = root.querySelector('[data-review-reject]');
-  const frame = root.querySelector('[data-swipe-frame]');
-  let state;
-  let startX = 0;
-
-  async function request(action) {
-    loading.hidden = false;
-    accept.disabled = true;
-    reject.disabled = true;
-    try {
-      const response = await fetch('/api/jobs/' + jobId + '/review', action ? {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      } : undefined);
-      if (!response.ok) throw new Error('Review request failed');
-      state = await response.json();
-      render();
-    } catch {
-      loading.hidden = true;
-      title.textContent = 'Review did not load';
-      step.textContent = 'Refresh needed';
-      detail.textContent = 'Refresh this page and try again.';
-      accept.disabled = true;
-      reject.disabled = true;
-    }
-  }
-
-  function render() {
-    if (!state?.slots) {
-      throw new Error('Review state missing slots');
-    }
-    const slot = state.slots[state.currentIndex];
-    loading.hidden = true;
-    accept.disabled = false;
-    reject.disabled = false;
-
-    if (state.complete || !slot) {
-      title.textContent = 'Carousel approved';
-      step.textContent = 'Ready to post';
-      count.textContent = state.slots.length + '/' + state.slots.length;
-      detail.textContent = 'Your accepted images are ready below.';
-      image.removeAttribute('src');
-      image.hidden = true;
-      accept.disabled = true;
-      reject.disabled = true;
-      return;
-    }
-
-    image.hidden = false;
-    image.src = '/api/jobs/' + jobId + '/files/' + slot.currentCandidate + '?v=' + Date.now();
-    title.textContent = slot.productName || slot.title;
-    step.textContent = slot.kind === 'storefront-hook' ? 'Hero slide' : 'Product slide';
-    count.textContent = (state.currentIndex + 1) + '/' + state.slots.length;
-    detail.textContent = slot.rejectCount >= 3
-      ? 'Next rejection should use the polished GPT fallback.'
-      : 'Swipe right to keep. Swipe left to try another option.';
-  }
-
-  accept?.addEventListener('click', () => request('accept'));
-  reject?.addEventListener('click', () => request('reject'));
-  frame?.addEventListener('touchstart', (event) => {
-    startX = event.changedTouches[0].clientX;
-  }, { passive: true });
-  frame?.addEventListener('touchend', (event) => {
-    const dx = event.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) < 50) return;
-    request(dx > 0 ? 'accept' : 'reject');
-  }, { passive: true });
-
-  request();
-})();`
+            __html: reviewClientScript()
           }}
         />
       </main>
