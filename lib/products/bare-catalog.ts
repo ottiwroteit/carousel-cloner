@@ -18,6 +18,10 @@ type CatalogOptions = {
   preferWithImages?: boolean;
 };
 
+type SelectBareProductsOptions = {
+  storeName?: string;
+};
+
 const WITH_IMAGES_FILE = "bare_products_with_images.csv";
 const ALL_SCANNABLE_FILE = "bare_products_all_scannable.csv";
 const UNSAFE_SCREEN_TERMS = [
@@ -111,6 +115,32 @@ function toProduct(row: Record<string, string>): BareProduct {
   };
 }
 
+const STORE_PRIVATE_LABELS: Array<{ pattern: RegExp; stores: RegExp[] }> = [
+  { pattern: /\btrader joe'?s\b/i, stores: [/trader joe/i] },
+  { pattern: /\b(kroger|simple truth|private selection)\b/i, stores: [/kroger/i] },
+  { pattern: /\b(publix|greenwise)\b/i, stores: [/publix/i] },
+  { pattern: /\b(h-?e-?b|central market)\b/i, stores: [/h-?e-?b/i] },
+  { pattern: /\bsprouts\b/i, stores: [/sprouts/i] },
+  { pattern: /\b(good\s*&\s*gather|market pantry|favorite day)\b/i, stores: [/target/i] },
+  { pattern: /\b(kirkland|costco)\b/i, stores: [/costco/i] },
+  { pattern: /\b(365|whole foods)\b/i, stores: [/whole foods/i] },
+  { pattern: /\b(signature select|open nature|o organics|jewel-osco)\b/i, stores: [/jewel/i, /osco/i, /albertsons/i] }
+];
+
+function matchesSelectedStore(product: BareProduct, storeName?: string): boolean {
+  if (!storeName) {
+    return true;
+  }
+
+  const brandAndName = `${product.brand} ${product.productName}`;
+  const privateLabel = STORE_PRIVATE_LABELS.find((entry) => entry.pattern.test(brandAndName));
+  if (!privateLabel) {
+    return true;
+  }
+
+  return privateLabel.stores.some((storePattern) => storePattern.test(storeName));
+}
+
 export async function readBareCatalog({
   dataDir = path.join(process.cwd(), "data"),
   preferWithImages = true
@@ -121,8 +151,22 @@ export async function readBareCatalog({
   return parseCsv(text).filter(isMarketable).map(toProduct);
 }
 
-export function selectBareProducts(products: BareProduct[], count: number, random: () => number = Math.random): BareProduct[] {
-  const eligible = products.filter((product) => product.imageUrl);
+export function selectBareProducts(
+  products: BareProduct[],
+  count: number,
+  random: () => number = Math.random,
+  options: SelectBareProductsOptions = {}
+): BareProduct[] {
+  const preferred = products.filter(
+    (product) =>
+      product.imageUrl &&
+      typeof product.score === "number" &&
+      product.score >= 90 &&
+      /excellent/i.test(product.label) &&
+      matchesSelectedStore(product, options.storeName)
+  );
+  const fallback = products.filter((product) => product.imageUrl && matchesSelectedStore(product, options.storeName));
+  const eligible = preferred.length >= count ? preferred : fallback;
   const remaining = [...eligible];
   const selected: BareProduct[] = [];
 

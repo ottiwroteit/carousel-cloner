@@ -8,8 +8,8 @@
     "build": "NEXT_DIST_DIR=.next-build next build",
     "start": "NEXT_DIST_DIR=.next-build next start",
     "local": "npm run dev",
-    "daily:tiktok": "tsx scripts/daily-tiktok.ts",
-    "daily:tiktok:dry": "tsx scripts/daily-tiktok.ts --dry-run",
+    "daily:tiktok": "node --import tsx scripts/daily-tiktok.ts",
+    "daily:tiktok:dry": "node --import tsx scripts/daily-tiktok.ts --dry-run",
     "lint": "eslint .",
     "test": "vitest"
   },

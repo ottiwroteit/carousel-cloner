@@ -7,6 +7,8 @@ type BuildTrendPackageOptions = {
   now?: Date;
   random?: RandomFn;
   bareProducts?: BareProduct[];
+  forceStorefrontHero?: boolean;
+  storeName?: string;
 };
 
 type Product = {
@@ -357,6 +359,10 @@ function pickHeroScene(hook: HookFamily, random: RandomFn): HeroScene {
   return pick(preferred.length ? preferred : HERO_SCENES, random);
 }
 
+function storefrontScene(): HeroScene {
+  return HERO_SCENES.find((scene) => scene.title === "Storefront") ?? HERO_SCENES[0];
+}
+
 function buildHeroPrompt(hookText: string, scene: HeroScene, storeName: string | undefined): string {
   const sceneDescription = scene.description.replaceAll("{store}", storeName ?? "a grocery");
 
@@ -405,10 +411,17 @@ function isTimingHook(hook: HookFamily): hook is TimingHook {
   return "occasion" in hook && typeof hook.occasion === "string";
 }
 
-export function buildTrendPackage({ now = new Date(), random = Math.random, bareProducts }: BuildTrendPackageOptions = {}): GeneratedPackage {
-  const { hook, occasion } = selectHook(now, random);
-  const scene = pickHeroScene(hook, random);
-  const storeName = scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined;
+export function buildTrendPackage({
+  now = new Date(),
+  random = Math.random,
+  bareProducts,
+  forceStorefrontHero = false,
+  storeName: forcedStoreName
+}: BuildTrendPackageOptions = {}): GeneratedPackage {
+  const selected = forceStorefrontHero ? { hook: pick(STORE_HOOKS, random), occasion: undefined } : selectHook(now, random);
+  const { hook, occasion } = selected;
+  const scene = forceStorefrontHero ? storefrontScene() : pickHeroScene(hook, random);
+  const storeName = forcedStoreName ?? (scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined);
   const hookText = hook.hookText(storeName, occasion);
   const products = bareProducts?.slice(0, 3).map(productFromBare) ?? [];
   const carouselSlides: CarouselSlidePlan[] = [

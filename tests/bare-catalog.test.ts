@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
-import { readBareCatalog, selectBareProducts } from "@/lib/products/bare-catalog";
+import { readBareCatalog, selectBareProducts, type BareProduct } from "@/lib/products/bare-catalog";
 
 let root: string | undefined;
 
@@ -53,5 +53,43 @@ describe("readBareCatalog", () => {
     ];
 
     expect(selectBareProducts(products, 2, () => 0).map((product) => product.barcode)).toEqual(["1", "2"]);
+  });
+
+  test("prefers high-scoring products for generated posts", () => {
+    const products: BareProduct[] = [
+      { barcode: "1", brand: "A", productName: "Avoid", category: "Snacks", score: 38, label: "Avoid", imageUrl: "a", source: "x", summary: "" },
+      { barcode: "2", brand: "B", productName: "Excellent", category: "Snacks", score: 95, label: "Excellent", imageUrl: "b", source: "x", summary: "" }
+    ];
+
+    expect(selectBareProducts(products, 1, () => 0).map((product) => product.barcode)).toEqual(["2"]);
+  });
+
+  test("avoids private-label products that do not match the selected store", () => {
+    const products: BareProduct[] = [
+      {
+        barcode: "1",
+        brand: "Kirkland Signature",
+        productName: "Salted Mixed Nuts",
+        category: "Snacks",
+        score: 95,
+        label: "Excellent",
+        imageUrl: "a",
+        source: "x",
+        summary: ""
+      },
+      {
+        barcode: "2",
+        brand: "Cocojune",
+        productName: "Organic Coconut Yogurt",
+        category: "Yogurt",
+        score: 99,
+        label: "Excellent",
+        imageUrl: "b",
+        source: "x",
+        summary: ""
+      }
+    ];
+
+    expect(selectBareProducts(products, 1, () => 0, { storeName: "Sprouts" }).map((product) => product.barcode)).toEqual(["2"]);
   });
 });

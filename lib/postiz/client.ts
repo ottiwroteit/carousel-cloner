@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { fetchWithCurlFallback, uploadFileWithCurl } from "@/lib/http";
 
 export type PostizIntegration = {
   id: string;
@@ -38,7 +38,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 }
 
 export async function listPostizIntegrations(baseUrl: string, apiKey: string): Promise<PostizIntegration[]> {
-  const response = await fetch(`${cleanBaseUrl(baseUrl)}/integrations`, {
+  const response = await fetchWithCurlFallback(`${cleanBaseUrl(baseUrl)}/integrations`, {
     headers: {
       Authorization: apiKey
     }
@@ -58,16 +58,14 @@ function mimeForFile(filePath: string): string {
 }
 
 export async function uploadPostizImage(baseUrl: string, apiKey: string, filePath: string): Promise<PostizUpload> {
-  const file = await readFile(filePath);
-  const body = new FormData();
-  body.append("file", new Blob([file], { type: mimeForFile(filePath) }), path.basename(filePath));
-
-  const response = await fetch(`${cleanBaseUrl(baseUrl)}/upload`, {
-    method: "POST",
+  const response = await uploadFileWithCurl({
+    url: `${cleanBaseUrl(baseUrl)}/upload`,
     headers: {
       Authorization: apiKey
     },
-    body
+    filePath,
+    mimeType: mimeForFile(filePath),
+    filename: path.basename(filePath)
   });
 
   return readJsonResponse<PostizUpload>(response);
@@ -82,7 +80,7 @@ export async function createPostizDraft({
   images,
   type = "draft"
 }: CreatePostizDraftOptions): Promise<unknown> {
-  const response = await fetch(`${cleanBaseUrl(baseUrl)}/posts`, {
+  const response = await fetchWithCurlFallback(`${cleanBaseUrl(baseUrl)}/posts`, {
     method: "POST",
     headers: {
       Authorization: apiKey,

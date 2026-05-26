@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 import { formatCaptionPackage } from "../lib/export/captions";
 import { completeCarouselImages } from "../lib/generator/complete-carousel-images";
 import { processJob } from "../lib/generator/pipeline";
@@ -19,6 +20,7 @@ type DraftResult = {
 const DEFAULT_POSTIZ_BASE_URL = "http://localhost:4007/api/public/v1";
 const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
+const STOREFRONT_STORES = ["Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B", "Jewel-Osco"];
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -70,6 +72,11 @@ function nextSlotDate(slot: string, index: number): Date {
   return date;
 }
 
+function storeForDraft(index: number): string {
+  const daySeed = Math.floor(Date.now() / 86_400_000);
+  return STOREFRONT_STORES[(daySeed + index) % STOREFRONT_STORES.length];
+}
+
 function captionForPackage(pkg: GeneratedPackage): string {
   const tags = pkg.hashtags.join(" ");
   const caption = `${pkg.mainCaption}\n\n${tags}`.trim();
@@ -101,14 +108,48 @@ async function finalizePackage(jobId: string, jobDir: string, pkg: GeneratedPack
   return completed;
 }
 
-async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: boolean): Promise<DraftResult> {
+async function assertCarouselReadyForUpload(pkg: GeneratedPackage, imagePaths: string[]): Promise<void> {
+  if ((pkg.carouselSlides ?? []).length !== 7 || imagePaths.length !== 7) {
+    throw new Error(`Upload blocked: expected 7 carousel images, received ${imagePaths.length}.`);
+  }
+
+  const heroPath = imagePaths[0];
+  if (!heroPath.toLowerCase().endsWith(".png")) {
+    throw new Error(`Upload blocked: hero slide must be a PNG, received ${path.basename(heroPath)}.`);
+  }
+
+  const metadata = await sharp(heroPath).metadata();
+  if (metadata.width !== 1080 || metadata.height !== 1920) {
+    throw new Error(`Upload blocked: hero slide must be 1080x1920, received ${metadata.width}x${metadata.height}.`);
+  }
+
+  const stats = await sharp(heroPath).stats();
+  const meanLuminance =
+    (stats.channels[0]?.mean ?? 0) * 0.2126 + (stats.channels[1]?.mean ?? 0) * 0.7152 + (stats.channels[2]?.mean ?? 0) * 0.0722;
+  if (meanLuminance < 65) {
+    throw new Error("Upload blocked: hero slide is too dark or blank-looking for TikTok.");
+  }
+
+  const firstSlide = pkg.carouselSlides?.[0];
+  if (!firstSlide?.generatedImage || firstSlide.kind !== "storefront-hook") {
+    throw new Error("Upload blocked: first slide is not a generated hero slide.");
+  }
+}
+
+async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: boolean, index: number): Promise<DraftResult> {
+  const storeName = storeForDraft(index);
   const job = await createJob({
     url: "https://www.tiktok.com/@downloadbare",
     profile: defaultProfile
   });
 
   const snapshot = await processJob(job.status.id, {
-    useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1"
+    useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
+    forceStorefrontHero: true,
+    storeName,
+    useStockHeroImages: true,
+    useBareSimulatorScreenshots: true,
+    requireBareSimulatorScreenshots: true
   });
   const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
   const images = (pkg.generatedImages ?? []).map((relativePath) => path.join(snapshot.dir, relativePath));
@@ -117,6 +158,7 @@ async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: bool
   if (images.length === 0) {
     throw new Error(`Job ${job.status.id} did not generate uploadable images.`);
   }
+  await assertCarouselReadyForUpload(pkg, images);
 
   if (dryRun) {
     return {
@@ -163,20 +205,23 @@ async function main(): Promise<void> {
   loadLocalEnv();
   const { dryRun, count } = parseArgs();
   const baseUrl = process.env.POSTIZ_BASE_URL ?? DEFAULT_POSTIZ_BASE_URL;
-  const apiKey = process.env.POSTIZ_API_KEY;
-  if (!apiKey) {
-    throw new Error("POSTIZ_API_KEY is missing from .env.local.");
-  }
-
   const profile = process.env.POSTIZ_TIKTOK_PROFILE ?? DEFAULT_TIKTOK_PROFILE;
   const slots = (process.env.POSTIZ_DAILY_SLOTS?.split(",") ?? DEFAULT_SLOTS).map((slot) => slot.trim()).filter(Boolean);
-  const integrations = await listPostizIntegrations(baseUrl, apiKey);
-  const tiktok = findTikTokIntegration(integrations, profile);
+  const apiKey = process.env.POSTIZ_API_KEY;
   const results: DraftResult[] = [];
+
+  let integrationId = "dry-run";
+  if (!dryRun) {
+    if (!apiKey) {
+      throw new Error("POSTIZ_API_KEY is missing from .env.local.");
+    }
+    const integrations = await listPostizIntegrations(baseUrl, apiKey as string);
+    integrationId = findTikTokIntegration(integrations, profile).id;
+  }
 
   for (let index = 0; index < count; index += 1) {
     const slot = slots[index % slots.length] ?? DEFAULT_SLOTS[index % DEFAULT_SLOTS.length];
-    results.push(await buildOneDraft(nextSlotDate(slot, index), tiktok.id, dryRun));
+    results.push(await buildOneDraft(nextSlotDate(slot, index), integrationId, dryRun, index));
   }
 
   console.log(

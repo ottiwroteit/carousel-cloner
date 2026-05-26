@@ -59,6 +59,19 @@ TIKTOK_COOKIES_FILE=/absolute/path/to/cookies.txt
 
 The app defaults to local generation so the full pipeline can run without paid APIs. When BARE product image URLs are available, local mode uses those real product images in vertical 9:16 slides; otherwise it falls back to placeholder SVG slides. Set `CAROUSEL_IMAGE_PROVIDER=openai` and `OPENAI_API_KEY` only when you want paid ChatGPT/OpenAI image generation.
 
+## BARE Simulator Proof Screenshots
+
+Scheduled TikTok carousel packages must use real BARE app product-detail screenshots for proof slides. The simulator workflow is:
+
+1. Tap the `Scan` tab.
+2. Tap the `Enter barcode manually` field.
+3. Type the product barcode from the BARE catalog.
+4. Press the submit arrow.
+5. Wait for the product detail sheet to open.
+6. Screenshot the product detail sheet.
+
+Do not accept Home, Profile, Scan, unmatched-route, blank, or competitor-style generated proof screens as carousel proof slides. If the product detail sheet is not visible, the scheduled package should fail instead of posting.
+
 `OPENAI_IMAGE_MODEL` controls image cost. Supported values:
 
 - `gpt-image-1-mini` cheaper default

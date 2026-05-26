@@ -77,7 +77,7 @@ function proofSvg(slide: CarouselSlidePlan): Buffer {
   <rect x="68" y="480" width="944" height="188" rx="42" fill="${LIGHT_GREEN}" stroke="#9fd8aa" stroke-width="6"/>
   <text x="540" y="594" text-anchor="middle" font-size="46" font-weight="800" fill="#39764c">Add to Pantry</text>
   <rect x="68" y="744" width="944" height="860" rx="52" fill="#ffffff"/>
-  <text x="204" y="850" font-size="54" font-weight="800" fill="${TEXT}">Olive's Analysis</text>
+  <text x="204" y="850" font-size="54" font-weight="800" fill="${TEXT}">BARE Analysis</text>
   <circle cx="144" cy="829" r="34" fill="#d9f2c9"/>
   <circle cx="134" cy="819" r="7" fill="#3c7b43"/>
   <circle cx="154" cy="819" r="7" fill="#3c7b43"/>

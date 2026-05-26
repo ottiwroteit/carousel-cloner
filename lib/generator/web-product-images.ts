@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { fetchWithCurlFallback } from "@/lib/http";
 
 type DuckDuckGoImageResult = {
   image?: string;
@@ -21,7 +22,7 @@ export type WebProductImage = {
   relativePath: string;
 };
 
-type FetchLike = typeof fetch;
+type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 type FindWebProductImageOptions = {
   jobDir: string;
@@ -165,7 +166,7 @@ export async function findWebProductImage({
   imageUrl,
   pageUrl,
   title,
-  fetcher = fetch
+  fetcher = fetchWithCurlFallback
 }: FindWebProductImageOptions): Promise<WebProductImage> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });

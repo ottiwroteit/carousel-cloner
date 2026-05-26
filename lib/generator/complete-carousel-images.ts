@@ -1,11 +1,15 @@
 import path from "node:path";
 import sharp from "sharp";
 import { composeBareProofImage } from "@/lib/generator/compose-bare-proof-image";
-import type { GeneratedPackage } from "@/lib/types";
+import { captureBareProductScreenshot } from "@/lib/generator/bare-simulator-screenshots";
+import type { CarouselSlidePlan, GeneratedPackage } from "@/lib/types";
 
 type CompleteCarouselImagesOptions = {
   jobDir: string;
   pkg: GeneratedPackage;
+  useBareSimulatorScreenshots?: boolean;
+  requireBareSimulatorScreenshots?: boolean;
+  captureBareScreenshot?: (slide: CarouselSlidePlan, outputName: string) => Promise<string>;
 };
 
 function publicImages(slides: NonNullable<GeneratedPackage["carouselSlides"]>): string[] {
@@ -25,20 +29,47 @@ async function ensurePng(jobDir: string, relativePath: string, outputName: strin
   return nextRelativePath;
 }
 
-export async function completeCarouselImages({ jobDir, pkg }: CompleteCarouselImagesOptions): Promise<GeneratedPackage> {
+export async function completeCarouselImages({
+  jobDir,
+  pkg,
+  useBareSimulatorScreenshots = false,
+  requireBareSimulatorScreenshots = false,
+  captureBareScreenshot
+}: CompleteCarouselImagesOptions): Promise<GeneratedPackage> {
   const slides = pkg.carouselSlides ?? [];
   const completed = [];
   let lastProductImage: string | undefined;
 
   for (const slide of slides) {
     if (slide.kind === "bare-screenshot") {
+      const outputName = `slide-${String(slide.position).padStart(2, "0")}-bare-proof`;
+      if (useBareSimulatorScreenshots && slide.barcode) {
+        try {
+          const generatedImage =
+            slide.generatedImage ??
+            (captureBareScreenshot
+              ? await captureBareScreenshot(slide, outputName)
+              : await captureBareProductScreenshot({
+                  jobDir,
+                  barcode: slide.barcode,
+                  outputName
+                }));
+          completed.push({ ...slide, generatedImage });
+          continue;
+        } catch (error) {
+          if (requireBareSimulatorScreenshots) {
+            throw error;
+          }
+        }
+      }
+
       const generatedImage =
         slide.generatedImage ??
         (await composeBareProofImage({
           jobDir,
           slide,
           sourceRelativePath: lastProductImage,
-          outputName: `slide-${String(slide.position).padStart(2, "0")}-bare-proof`
+          outputName
         }));
       completed.push({ ...slide, generatedImage });
       continue;

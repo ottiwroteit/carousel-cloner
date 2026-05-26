@@ -3,9 +3,10 @@ import path from "node:path";
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
 import { completeCarouselImages } from "@/lib/generator/complete-carousel-images";
+import { composeHeroImage, composeLocalHeroImage } from "@/lib/generator/compose-hero-image";
 import { composeProductImage } from "@/lib/generator/compose-product-image";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
-import { generateSlideImages, renderSlideSvg } from "@/lib/generator/slides";
+import { generateSlideImages } from "@/lib/generator/slides";
 import { attachGeneratedImagesToSlides, buildTrendPackage } from "@/lib/generator/trend-package";
 import { findWebProductImage, type WebProductImage } from "@/lib/generator/web-product-images";
 import {
@@ -17,6 +18,7 @@ import {
   type JobSnapshot
 } from "@/lib/jobs/store";
 import { readBareCatalog, selectBareProducts } from "@/lib/products/bare-catalog";
+import { fetchWithCurlFallback } from "@/lib/http";
 import type { SourceAnalysis } from "@/lib/types";
 
 type ProcessJobOptions = {
@@ -24,6 +26,11 @@ type ProcessJobOptions = {
   extract?: (url: string, jobDir: string) => Promise<ExtractTikTokSourceResult>;
   hasOpenAIKey?: boolean;
   useOpenAIImages?: boolean;
+  forceStorefrontHero?: boolean;
+  storeName?: string;
+  useStockHeroImages?: boolean;
+  useBareSimulatorScreenshots?: boolean;
+  requireBareSimulatorScreenshots?: boolean;
   generateOpenAIImages?: typeof generateOpenAIImages;
   findWebProductImage?: typeof findWebProductImage;
   readBareCatalog?: typeof readBareCatalog;
@@ -34,6 +41,24 @@ type ImageGenerationArtifact =
   | { provider: "hybrid-web-openai"; model: string; quality: string; outputFormat: string; productSources: WebProductImage[] }
   | { provider: "local-real-products"; reason: string; productSources: WebProductImage[] }
   | { provider: "local-svg"; reason: string };
+
+const STOCK_HERO_IMAGES = [
+  "https://images.pexels.com/photos/30869949/pexels-photo-30869949.jpeg?cs=srgb&fm=jpg"
+];
+
+async function downloadStockHeroImage(jobDir: string, index: number): Promise<string> {
+  const generatedDir = path.join(jobDir, "generated");
+  await mkdir(generatedDir, { recursive: true });
+  const sourceUrl = STOCK_HERO_IMAGES[index % STOCK_HERO_IMAGES.length];
+  const response = await fetchWithCurlFallback(sourceUrl);
+  if (!response.ok) {
+    throw new Error(`Stock hero image failed with HTTP ${response.status}.`);
+  }
+
+  const relativePath = path.join("generated", `hero-source-${String(index + 1).padStart(2, "0")}.jpg`);
+  await writeFile(path.join(jobDir, relativePath), Buffer.from(await response.arrayBuffer()));
+  return relativePath;
+}
 
 function buildFallbackAnalysis(reason: string): SourceAnalysis {
   return {
@@ -49,7 +74,8 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
 async function generateLocalImagesWithRealProducts(
   snapshot: JobSnapshot,
   pkg: ReturnType<typeof buildTrendPackage>,
-  findProductImage: typeof findWebProductImage
+  findProductImage: typeof findWebProductImage,
+  useStockHeroImages = false
 ): Promise<{ generatedImages: string[]; productSources: WebProductImage[] }> {
   const generatedDir = path.join(snapshot.dir, "generated");
   await mkdir(generatedDir, { recursive: true });
@@ -82,19 +108,30 @@ async function generateLocalImagesWithRealProducts(
       continue;
     }
 
-    const filename = `slide-${String(slideNumber).padStart(2, "0")}.svg`;
-    const relativePath = path.join("generated", filename);
-    await writeFile(
-      path.join(snapshot.dir, relativePath),
-      renderSlideSvg({
-        index: slideNumber,
-        total: slides.length,
-        title: slide.title,
-        profile: snapshot.input.profile
-      }),
-      "utf8"
-    );
-    generatedImages.push(relativePath);
+    try {
+      if (!useStockHeroImages) {
+        throw new Error("Stock hero images disabled.");
+      }
+      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber);
+      generatedImages.push(
+        await composeHeroImage({
+          jobDir: snapshot.dir,
+          sourceRelativePath: heroSource,
+          outputName: `slide-${String(slideNumber).padStart(2, "0")}`,
+          title: slide.title
+        })
+      );
+    } catch {
+      generatedImages.push(
+        await composeLocalHeroImage({
+          jobDir: snapshot.dir,
+          outputName: `slide-${String(slideNumber).padStart(2, "0")}`,
+          title: slide.title,
+          storeName: slide.storeName,
+          variant: slideNumber
+        })
+      );
+    }
   }
 
   return { generatedImages, productSources };
@@ -139,7 +176,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const catalogReader = options.readBareCatalog ?? readBareCatalog;
-  const catalogProducts = selectBareProducts(await catalogReader(), 3);
+  const catalogProducts = selectBareProducts(await catalogReader(), 3, Math.random, { storeName: options.storeName });
   if (catalogProducts.length === 0) {
     throw new Error("BARE catalog did not return any marketable products with images.");
   }
@@ -157,7 +194,11 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
     root
   );
 
-  let generated = buildTrendPackage({ bareProducts: catalogProducts });
+  let generated = buildTrendPackage({
+    bareProducts: catalogProducts,
+    forceStorefrontHero: options.forceStorefrontHero,
+    storeName: options.storeName
+  });
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
   const openAIImageGenerator = options.generateOpenAIImages ?? generateOpenAIImages;
   const webProductImageFinder = options.findWebProductImage ?? findWebProductImage;
@@ -242,7 +283,12 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
     const productSlidesWithImages = (generated.carouselSlides ?? []).filter((slide) => slide.kind === "product-photo" && slide.bareImageUrl);
     if (productSlidesWithImages.length > 0) {
       try {
-        const { generatedImages, productSources } = await generateLocalImagesWithRealProducts(snapshot, generated, webProductImageFinder);
+        const { generatedImages, productSources } = await generateLocalImagesWithRealProducts(
+          snapshot,
+          generated,
+          webProductImageFinder,
+          options.useStockHeroImages
+        );
         generated = attachGeneratedImagesToSlides(generated, generatedImages);
         await writeJobArtifact(
           id,
@@ -283,7 +329,12 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
     }
   }
 
-  generated = await completeCarouselImages({ jobDir: snapshot.dir, pkg: generated });
+  generated = await completeCarouselImages({
+    jobDir: snapshot.dir,
+    pkg: generated,
+    useBareSimulatorScreenshots: options.useBareSimulatorScreenshots,
+    requireBareSimulatorScreenshots: options.requireBareSimulatorScreenshots
+  });
 
   await writeJobArtifact(id, "package.json", generated, root);
   await writeJobTextArtifact(id, "captions.txt", formatCaptionPackage(generated), root);
