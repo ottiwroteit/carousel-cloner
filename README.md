@@ -63,11 +63,11 @@ The app defaults to local generation so the full pipeline can run without paid A
 
 Scheduled TikTok carousel packages must use real BARE app product-detail screenshots for proof slides. The simulator workflow is:
 
-1. Tap the `Scan` tab.
-2. Tap the `Enter barcode manually` field.
-3. Type the product barcode from the BARE catalog.
-4. Press the submit arrow.
-5. Wait for the product detail sheet to open.
+1. Open the BARE app in the iOS Simulator.
+2. Go to the History tab.
+3. Click into a product already present in scan history.
+4. Wait for the product detail sheet to open.
+5. Validate the detail sheet matches the selected product.
 6. Screenshot the product detail sheet.
 
 Do not accept Home, Profile, Scan, unmatched-route, blank, or competitor-style generated proof screens as carousel proof slides. If the product detail sheet is not visible, the scheduled package should fail instead of posting.

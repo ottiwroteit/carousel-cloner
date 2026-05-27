@@ -52,6 +52,7 @@ export async function completeCarouselImages({
               : await captureBareProductScreenshot({
                   jobDir,
                   barcode: slide.barcode,
+                  productName: slide.productName,
                   outputName
                 }));
           completed.push({ ...slide, generatedImage });

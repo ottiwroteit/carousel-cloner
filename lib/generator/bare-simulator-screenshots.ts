@@ -8,8 +8,27 @@ type CaptureBareProductScreenshotOptions = {
   jobDir: string;
   barcode: string;
   outputName: string;
+  productName?: string;
   simulatorId?: string;
   bundleId?: string;
+};
+
+export type BareHistoryProduct = {
+  productName: string;
+  brand: string;
+  score: number | null;
+};
+
+type AxeNode = {
+  AXLabel?: string | null;
+  frame?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  children?: AxeNode[];
+  type?: string;
 };
 
 const execFileAsync = promisify(execFile);
@@ -63,12 +82,213 @@ async function resolveSimulatorUdid(simulatorId: string): Promise<string> {
   return booted.udid;
 }
 
-async function axeTap(axePath: string, udid: string, x: number, y: number, postDelay = 0.35): Promise<void> {
-  await run(axePath, ["tap", "-x", String(x), "-y", String(y), "--udid", udid, "--post-delay", String(postDelay)]);
+async function axeTap(axePath: string, udid: string, x: number, y: number, postDelay = 0.35, tapStyle = "simulator"): Promise<void> {
+  await run(axePath, [
+    "tap",
+    "-x",
+    String(x),
+    "-y",
+    String(y),
+    "--udid",
+    udid,
+    "--tap-style",
+    tapStyle,
+    "--post-delay",
+    String(postDelay)
+  ]);
 }
 
-async function axeType(axePath: string, udid: string, text: string): Promise<void> {
-  await run(axePath, ["type", text, "--udid", udid]);
+async function axeTree(axePath: string, udid: string): Promise<AxeNode[]> {
+  const text = await run(axePath, ["describe-ui", "--udid", udid]);
+  return JSON.parse(text) as AxeNode[];
+}
+
+function flattenAxeTree(tree: AxeNode[]): AxeNode[] {
+  const nodes: AxeNode[] = [];
+  const visit = (node: AxeNode): void => {
+    nodes.push(node);
+    for (const child of node.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const entry of tree) {
+    visit(entry);
+  }
+  return nodes;
+}
+
+async function axeLabels(axePath: string, udid: string): Promise<string[]> {
+  const tree = await axeTree(axePath, udid);
+  const labels: string[] = [];
+  for (const node of flattenAxeTree(tree)) {
+    if (node.AXLabel) {
+      labels.push(node.AXLabel);
+    }
+  }
+  return labels;
+}
+
+function meaningfulWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replaceAll("&", " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !["and", "the", "with", "organic", "natural"].includes(word));
+}
+
+function labelsMatchProductDetail(labels: string[], productName?: string): boolean {
+  const rawScreenText = labels.join(" ").toLowerCase();
+  if (!rawScreenText.includes("crunchy") || !rawScreenText.includes("health breakdown")) {
+    return false;
+  }
+
+  if (!productName) {
+    return true;
+  }
+
+  const screenText = meaningfulWords(labels.join(" ")).join(" ");
+  const words = meaningfulWords(productName);
+  const required = words.slice(0, Math.min(words.length, 3));
+  if (required.length === 0) {
+    return true;
+  }
+
+  return required.every((word) => screenText.includes(word));
+}
+
+function parseHistoryProduct(label: string): BareHistoryProduct | null {
+  const match = label.match(/^(.+),\s*([^,]+),\s*(\d{1,3})$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    productName: match[1].trim(),
+    brand: match[2].trim(),
+    score: Number(match[3])
+  };
+}
+
+function historyRowsFromTree(tree: AxeNode[]): Array<BareHistoryProduct & { frame: NonNullable<AxeNode["frame"]>; label: string }> {
+  return flattenAxeTree(tree)
+    .map((node) => {
+      if (!node.AXLabel || !node.frame || node.type !== "GenericElement") {
+        return null;
+      }
+      const product = parseHistoryProduct(node.AXLabel);
+      if (!product) {
+        return null;
+      }
+      return { ...product, frame: node.frame, label: node.AXLabel };
+    })
+    .filter(Boolean) as Array<BareHistoryProduct & { frame: NonNullable<AxeNode["frame"]>; label: string }>;
+}
+
+function productMatches(row: BareHistoryProduct, productName?: string): boolean {
+  if (!productName) {
+    return true;
+  }
+
+  const rowWords = meaningfulWords(`${row.brand} ${row.productName}`).join(" ");
+  const productWords = meaningfulWords(productName);
+  const required = productWords.slice(0, Math.min(productWords.length, 3));
+  return required.length === 0 || required.every((word) => rowWords.includes(word));
+}
+
+async function navigateToHistory(axePath: string, udid: string, simulatorId: string): Promise<void> {
+  await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  // Close any product detail sheet if one is already open.
+  await axeTap(axePath, udid, 368, 137, 0.35, "physical").catch(() => undefined);
+  await axeTap(axePath, udid, 281, 823, 0.8, "physical").catch(async () => {
+    await run(axePath, [
+      "tap",
+      "--label",
+      "History, tab, 4 of 5",
+      "--udid",
+      udid,
+      "--tap-style",
+      "physical",
+      "--wait-timeout",
+      "1",
+      "--post-delay",
+      "0.8"
+    ]);
+  });
+  await resetHistoryScrollToTop(axePath, udid);
+}
+
+async function swipeHistoryList(axePath: string, udid: string): Promise<void> {
+  await run(axePath, [
+    "swipe",
+    "--start-x",
+    "205",
+    "--start-y",
+    "735",
+    "--end-x",
+    "205",
+    "--end-y",
+    "210",
+    "--duration",
+    "0.45",
+    "--post-delay",
+    "0.75",
+    "--udid",
+    udid
+  ]);
+}
+
+async function resetHistoryScrollToTop(axePath: string, udid: string): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await run(axePath, [
+      "swipe",
+      "--start-x",
+      "205",
+      "--start-y",
+      "210",
+      "--end-x",
+      "205",
+      "--end-y",
+      "735",
+      "--duration",
+      "0.35",
+      "--post-delay",
+      "0.25",
+      "--udid",
+      udid
+    ]).catch(() => undefined);
+  }
+}
+
+export async function listBareHistoryProducts({
+  simulatorId = process.env.BARE_SIMULATOR_ID ?? DEFAULT_SIMULATOR_ID,
+  maxScrolls = 0
+}: {
+  simulatorId?: string;
+  maxScrolls?: number;
+} = {}): Promise<BareHistoryProduct[]> {
+  const udid = await resolveSimulatorUdid(simulatorId);
+  const axePath = await findAxePath();
+  const products = new Map<string, BareHistoryProduct>();
+
+  await navigateToHistory(axePath, udid, simulatorId);
+  for (let attempt = 0; attempt <= maxScrolls; attempt += 1) {
+    const rows = historyRowsFromTree(await axeTree(axePath, udid));
+    for (const row of rows) {
+      products.set(`${row.brand.toLowerCase()}::${row.productName.toLowerCase()}`, {
+        productName: row.productName,
+        brand: row.brand,
+        score: row.score
+      });
+    }
+    if (attempt < maxScrolls) {
+      await swipeHistoryList(axePath, udid);
+    }
+  }
+
+  return [...products.values()];
 }
 
 async function normalizeScreenshot(inputPath: string, outputPath: string): Promise<void> {
@@ -130,22 +350,34 @@ async function hasProductDetailSheet(inputPath: string): Promise<boolean> {
   return luminance > 145 && contrast > 24 && scoreColorRatio > 0.012;
 }
 
-async function driveBarcodeSearch(axePath: string, udid: string, simulatorId: string, barcode: string): Promise<void> {
-  await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
-  await new Promise((resolve) => setTimeout(resolve, 800));
+async function driveHistoryProductOpen(axePath: string, udid: string, simulatorId: string, productName?: string): Promise<void> {
+  await navigateToHistory(axePath, udid, simulatorId);
 
-  // The six-step proof workflow: Scan tab -> manual barcode field -> type barcode -> submit -> product detail sheet.
-  await axeTap(axePath, udid, 368, 137, 0.45).catch(() => undefined);
-  await axeTap(axePath, udid, 121, 825, 0.55);
-  await axeTap(axePath, udid, 150, 724, 0.35);
-  await axeType(axePath, udid, barcode);
-  await axeTap(axePath, udid, 363, 724, 3.8);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const rows = historyRowsFromTree(await axeTree(axePath, udid));
+    const row = rows.find((candidate) => productMatches(candidate, productName));
+    if (row) {
+      await axeTap(
+        axePath,
+        udid,
+        Math.round(row.frame.x + row.frame.width / 2),
+        Math.round(row.frame.y + row.frame.height / 2),
+        2.2,
+        "physical"
+      );
+      return;
+    }
+    await swipeHistoryList(axePath, udid);
+  }
+
+  throw new Error(`Cannot capture BARE screenshot: product "${productName ?? "unknown"}" was not visible in History.`);
 }
 
 export async function captureBareProductScreenshot({
   jobDir,
   barcode,
   outputName,
+  productName,
   simulatorId = process.env.BARE_SIMULATOR_ID ?? DEFAULT_SIMULATOR_ID
 }: CaptureBareProductScreenshotOptions): Promise<string> {
   if (!/^\d{6,}$/.test(barcode)) {
@@ -163,13 +395,14 @@ export async function captureBareProductScreenshot({
   const axePath = await findAxePath();
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await driveBarcodeSearch(axePath, udid, simulatorId, barcode);
+    await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
     await screenshot(simulatorId, rawPath);
-    if (await hasProductDetailSheet(rawPath)) {
+    const labels = await axeLabels(axePath, udid);
+    if ((await hasProductDetailSheet(rawPath)) && labelsMatchProductDetail(labels, productName)) {
       await normalizeScreenshot(rawPath, outputPath);
       return relativePath;
     }
   }
 
-  throw new Error(`Cannot capture BARE screenshot for barcode ${barcode}: product detail sheet did not appear.`);
+  throw new Error(`Cannot capture BARE screenshot for ${productName ?? barcode}: matching product detail sheet did not appear.`);
 }

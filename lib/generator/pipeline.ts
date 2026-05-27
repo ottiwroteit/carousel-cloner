@@ -3,6 +3,7 @@ import path from "node:path";
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
 import { completeCarouselImages } from "@/lib/generator/complete-carousel-images";
+import { listBareHistoryProducts, type BareHistoryProduct } from "@/lib/generator/bare-simulator-screenshots";
 import { composeHeroImage, composeLocalHeroImage } from "@/lib/generator/compose-hero-image";
 import { composeProductImage } from "@/lib/generator/compose-product-image";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
@@ -42,14 +43,29 @@ type ImageGenerationArtifact =
   | { provider: "local-real-products"; reason: string; productSources: WebProductImage[] }
   | { provider: "local-svg"; reason: string };
 
-const STOCK_HERO_IMAGES = [
-  "https://images.pexels.com/photos/30869949/pexels-photo-30869949.jpeg?cs=srgb&fm=jpg"
-];
+const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
+  "target": ["https://upload.wikimedia.org/wikipedia/commons/4/48/Target_exterior_in_Northern_Virginia_-_November_2019.jpg"],
+  "walmart": ["https://upload.wikimedia.org/wikipedia/commons/0/04/Walmart_exterior.jpg"],
+  "whole foods": ["https://upload.wikimedia.org/wikipedia/commons/b/bf/WholeFoodsHeadquarters-2008-a.JPG"],
+  "trader joe's": ["https://upload.wikimedia.org/wikipedia/commons/8/8f/Trader_Joe%27s_Grocery_Store_Ann_Arbor_Michigan.JPG"],
+  "sprouts": ["https://upload.wikimedia.org/wikipedia/commons/1/14/Sprouts_Farmers_Market%2C_West_Melbourne%2C_Florida.jpg"],
+  "kroger": ["https://upload.wikimedia.org/wikipedia/commons/9/99/The_exterior_of_a_Kroger_Marketplace_store_in_Athens%2C_Georgia_01.jpg"],
+  "publix": ["https://upload.wikimedia.org/wikipedia/commons/e/e7/A_typical_Publix_grocery_store_exterior_seen_in_Farragut%2C_Tennessee_03.jpg"],
+  "h-e-b": ["https://upload.wikimedia.org/wikipedia/commons/0/0a/H-E-B_Grocery_Store_and_Parked_Cars%2C_Texas_%2847550080862%29.jpg"]
+};
 
-async function downloadStockHeroImage(jobDir: string, index: number): Promise<string> {
+const FALLBACK_REAL_STORE_HERO_IMAGES = Object.values(REAL_STORE_HERO_IMAGES).flat();
+
+function normalizeStoreKey(storeName?: string): string | undefined {
+  return storeName?.toLowerCase().replaceAll("’", "'").trim();
+}
+
+async function downloadStockHeroImage(jobDir: string, index: number, storeName?: string): Promise<string> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
-  const sourceUrl = STOCK_HERO_IMAGES[index % STOCK_HERO_IMAGES.length];
+  const storeImages = REAL_STORE_HERO_IMAGES[normalizeStoreKey(storeName) ?? ""];
+  const imagePool = storeImages?.length ? storeImages : FALLBACK_REAL_STORE_HERO_IMAGES;
+  const sourceUrl = imagePool[index % imagePool.length];
   const response = await fetchWithCurlFallback(sourceUrl);
   if (!response.ok) {
     throw new Error(`Stock hero image failed with HTTP ${response.status}.`);
@@ -69,6 +85,47 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
     captionStrategy: "Frame the post as cleaner grocery finds worth saving before the next store trip.",
     whyItWorks: "It matches a TikTok-native shopping format: recognizable store context, real product proof, then BARE app validation."
   };
+}
+
+function productSearchWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replaceAll("&", " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !["and", "the", "with", "organic", "natural"].includes(word));
+}
+
+function catalogProductMatchesHistory(
+  product: Awaited<ReturnType<typeof readBareCatalog>>[number],
+  historyProduct: BareHistoryProduct
+): boolean {
+  const catalogWords = productSearchWords(`${product.brand} ${product.productName}`).join(" ");
+  const historyWords = productSearchWords(`${historyProduct.brand} ${historyProduct.productName}`);
+  const required = historyWords.slice(0, Math.min(historyWords.length, 3));
+  return required.length > 0 && required.every((word) => catalogWords.includes(word));
+}
+
+async function productsAvailableInBareHistory(
+  products: Awaited<ReturnType<typeof readBareCatalog>>,
+  requireHistory: boolean
+): Promise<typeof products> {
+  if (!requireHistory) {
+    return products;
+  }
+
+  const historyProducts = await listBareHistoryProducts({ maxScrolls: 0 });
+  const filtered = products.filter((product) =>
+    historyProducts.some((historyProduct) => catalogProductMatchesHistory(product, historyProduct))
+  );
+
+  if (filtered.length < 3) {
+    throw new Error(
+      `BARE History only matched ${filtered.length} catalog product(s); cannot build a reliable 3-product carousel from simulator History.`
+    );
+  }
+
+  return filtered;
 }
 
 async function generateLocalImagesWithRealProducts(
@@ -112,7 +169,7 @@ async function generateLocalImagesWithRealProducts(
       if (!useStockHeroImages) {
         throw new Error("Stock hero images disabled.");
       }
-      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber);
+      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName);
       generatedImages.push(
         await composeHeroImage({
           jobDir: snapshot.dir,
@@ -176,7 +233,10 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const catalogReader = options.readBareCatalog ?? readBareCatalog;
-  const catalogProducts = selectBareProducts(await catalogReader(), 3, Math.random, { storeName: options.storeName });
+  const historyRequired = Boolean(options.useBareSimulatorScreenshots && options.requireBareSimulatorScreenshots);
+  const catalogProducts = selectBareProducts(await productsAvailableInBareHistory(await catalogReader(), historyRequired), 3, Math.random, {
+    storeName: options.storeName
+  });
   if (catalogProducts.length === 0) {
     throw new Error("BARE catalog did not return any marketable products with images.");
   }

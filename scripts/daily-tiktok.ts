@@ -20,7 +20,7 @@ type DraftResult = {
 const DEFAULT_POSTIZ_BASE_URL = "http://localhost:4007/api/public/v1";
 const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
-const STOREFRONT_STORES = ["Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B", "Jewel-Osco"];
+const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B"];
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
