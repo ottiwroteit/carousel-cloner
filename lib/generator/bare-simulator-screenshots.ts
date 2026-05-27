@@ -98,6 +98,43 @@ async function axeTap(axePath: string, udid: string, x: number, y: number, postD
   ]);
 }
 
+async function axeTapLabel(axePath: string, udid: string, label: string, postDelay = 0.8): Promise<void> {
+  await run(axePath, [
+    "tap",
+    "--label",
+    label,
+    "--udid",
+    udid,
+    "--tap-style",
+    "simulator",
+    "--wait-timeout",
+    "4",
+    "--post-delay",
+    String(postDelay)
+  ]);
+}
+
+async function axeType(axePath: string, udid: string, text: string): Promise<void> {
+  await run(axePath, ["type", text, "--udid", udid]);
+}
+
+async function typeBarcodeIntoFocusedField(barcode: string): Promise<void> {
+  const safeBarcode = barcode.replace(/[^0-9]/g, "");
+  const script = `
+tell application "Simulator" to activate
+delay 0.15
+tell application "System Events"
+  tell process "Simulator"
+    keystroke "a" using command down
+    delay 0.05
+    key code 51
+    delay 0.05
+    keystroke "${safeBarcode}"
+  end tell
+end tell`;
+  await run("osascript", ["-e", script]);
+}
+
 async function axeTree(axePath: string, udid: string): Promise<AxeNode[]> {
   const text = await run(axePath, ["describe-ui", "--udid", udid]);
   return JSON.parse(text) as AxeNode[];
@@ -176,6 +213,9 @@ function historyRowsFromTree(tree: AxeNode[]): Array<BareHistoryProduct & { fram
       if (!node.AXLabel || !node.frame || node.type !== "GenericElement") {
         return null;
       }
+      if (node.frame.y < 100 || node.frame.y > 780) {
+        return null;
+      }
       const product = parseHistoryProduct(node.AXLabel);
       if (!product) {
         return null;
@@ -200,24 +240,45 @@ async function navigateToHistory(axePath: string, udid: string, simulatorId: str
   await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
   await new Promise((resolve) => setTimeout(resolve, 800));
 
-  // Close any product detail sheet if one is already open.
+  await closeProductDetailIfOpen(axePath, udid);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await axeTapLabel(axePath, udid, "History, tab, 4 of 5").catch(async () => {
+      await axeTap(axePath, udid, 281, 823, 0.8, "simulator");
+    });
+    const labels = await axeLabels(axePath, udid);
+    if (labels.includes("Scan History")) {
+      await resetHistoryScrollToTop(axePath, udid);
+      return;
+    }
+  }
+  throw new Error("Cannot capture BARE screenshot: History tab did not open.");
+}
+
+async function closeProductDetailIfOpen(axePath: string, udid: string): Promise<void> {
+  const labels = await axeLabels(axePath, udid).catch((): string[] => []);
+  if (labels.includes("Scan History") || labels.includes("Scan Product")) {
+    return;
+  }
+
+  await axeTap(axePath, udid, 371, 127, 0.35, "simulator").catch(() => undefined);
   await axeTap(axePath, udid, 368, 137, 0.35, "physical").catch(() => undefined);
-  await axeTap(axePath, udid, 281, 823, 0.8, "physical").catch(async () => {
-    await run(axePath, [
-      "tap",
-      "--label",
-      "History, tab, 4 of 5",
-      "--udid",
-      udid,
-      "--tap-style",
-      "physical",
-      "--wait-timeout",
-      "1",
-      "--post-delay",
-      "0.8"
-    ]);
-  });
-  await resetHistoryScrollToTop(axePath, udid);
+}
+
+async function navigateToScan(axePath: string, udid: string, simulatorId: string): Promise<void> {
+  await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  await closeProductDetailIfOpen(axePath, udid);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await axeTapLabel(axePath, udid, "Scan, tab, 2 of 5").catch(async () => {
+      await axeTap(axePath, udid, 121, 823, 0.8, "simulator");
+    });
+    const labels = await axeLabels(axePath, udid);
+    if (labels.includes("Scan Product") && labels.includes("Enter barcode manually")) {
+      return;
+    }
+  }
+  throw new Error("Cannot capture BARE screenshot: Scan tab did not open.");
 }
 
 async function swipeHistoryList(axePath: string, udid: string): Promise<void> {
@@ -363,7 +424,7 @@ async function driveHistoryProductOpen(axePath: string, udid: string, simulatorI
         Math.round(row.frame.x + row.frame.width / 2),
         Math.round(row.frame.y + row.frame.height / 2),
         2.2,
-        "physical"
+        "simulator"
       );
       return;
     }
@@ -371,6 +432,14 @@ async function driveHistoryProductOpen(axePath: string, udid: string, simulatorI
   }
 
   throw new Error(`Cannot capture BARE screenshot: product "${productName ?? "unknown"}" was not visible in History.`);
+}
+
+async function driveBarcodeProductOpen(axePath: string, udid: string, simulatorId: string, barcode: string): Promise<void> {
+  await navigateToScan(axePath, udid, simulatorId);
+
+  await axeTap(axePath, udid, 170, 724, 0.35, "simulator");
+  await typeBarcodeIntoFocusedField(barcode).catch(async () => axeType(axePath, udid, barcode));
+  await axeTap(axePath, udid, 363, 724, 3, "simulator");
 }
 
 export async function captureBareProductScreenshot({
@@ -395,7 +464,11 @@ export async function captureBareProductScreenshot({
   const axePath = await findAxePath();
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
+    try {
+      await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
+    } catch {
+      await driveBarcodeProductOpen(axePath, udid, simulatorId, barcode);
+    }
     await screenshot(simulatorId, rawPath);
     const labels = await axeLabels(axePath, udid);
     if ((await hasProductDetailSheet(rawPath)) && labelsMatchProductDetail(labels, productName)) {
