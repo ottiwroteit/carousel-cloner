@@ -1,4 +1,5 @@
 node_modules
+.agents
 .next
 .next-dev
 .next-build
@@ -8,4 +9,5 @@ data/*.csv
 .env.local
 .env*.local
 coverage
+skills-lock.json
 .DS_Store

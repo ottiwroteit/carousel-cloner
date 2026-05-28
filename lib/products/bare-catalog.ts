@@ -32,6 +32,12 @@ const UNSAFE_SCREEN_TERMS = [
   /\bspam\b/i,
   /\bbacon\b/i
 ];
+const REJECTED_ROTATION_TERMS = [
+  /\bozarka\b/i,
+  /\bolive\s+oil+l*\b/i,
+  /\bliquid\s+death\b/i,
+  /\bsnapple\b/i
+];
 
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
@@ -80,9 +86,9 @@ function isMarketable(row: Record<string, string>): boolean {
   const brand = row.brand?.trim() ?? "";
   const barcode = row.barcode?.trim() ?? "";
   const imageUrl = row.image_url?.trim() ?? "";
-  const screenText = `${name} ${row.category ?? ""} ${row.summary ?? ""}`;
+  const screenText = `${brand} ${name} ${row.category ?? ""} ${row.summary ?? ""}`;
 
-  if (!barcode || !brand || !name || !imageUrl) {
+  if (!barcode || !brand || !name || !imageUrl || /^null$/i.test(imageUrl)) {
     return false;
   }
 
@@ -95,6 +101,10 @@ function isMarketable(row: Record<string, string>): boolean {
   }
 
   if (UNSAFE_SCREEN_TERMS.some((term) => term.test(screenText))) {
+    return false;
+  }
+
+  if (REJECTED_ROTATION_TERMS.some((term) => term.test(screenText))) {
     return false;
   }
 

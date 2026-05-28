@@ -213,7 +213,7 @@ function historyRowsFromTree(tree: AxeNode[]): Array<BareHistoryProduct & { fram
       if (!node.AXLabel || !node.frame || node.type !== "GenericElement") {
         return null;
       }
-      if (node.frame.y < 100 || node.frame.y > 780) {
+      if (node.frame.y < 100 || node.frame.y + node.frame.height > 780) {
         return null;
       }
       const product = parseHistoryProduct(node.AXLabel);
@@ -463,17 +463,33 @@ export async function captureBareProductScreenshot({
   const udid = await resolveSimulatorUdid(simulatorId);
   const axePath = await findAxePath();
 
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
-    } catch {
-      await driveBarcodeProductOpen(axePath, udid, simulatorId, barcode);
-    }
+  const captureAndValidate = async (): Promise<boolean> => {
     await screenshot(simulatorId, rawPath);
     const labels = await axeLabels(axePath, udid);
     if ((await hasProductDetailSheet(rawPath)) && labelsMatchProductDetail(labels, productName)) {
       await normalizeScreenshot(rawPath, outputPath);
-      return relativePath;
+      return true;
+    }
+    return false;
+  };
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
+      if (await captureAndValidate()) {
+        return relativePath;
+      }
+    } catch {
+      // Fall through to barcode search below.
+    }
+
+    try {
+      await driveBarcodeProductOpen(axePath, udid, simulatorId, barcode);
+      if (await captureAndValidate()) {
+        return relativePath;
+      }
+    } catch {
+      // Retry the full history -> barcode sequence.
     }
   }
 

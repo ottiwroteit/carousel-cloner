@@ -72,6 +72,22 @@ Scheduled TikTok carousel packages must use real BARE app product-detail screens
 
 Do not accept Home, Profile, Scan, unmatched-route, blank, or competitor-style generated proof screens as carousel proof slides. If the product detail sheet is not visible, the scheduled package should fail instead of posting.
 
+## Product Rotation Rules
+
+Scheduled BARE carousel drafts must select from the broad BARE catalog, not a tiny hardcoded History list. The History tab is a screenshot convenience, not the source of truth for product selection. If a product is not visible in History, the pipeline should use the Scan tab/manual barcode flow to open the BARE product detail screen.
+
+Each post should avoid products used in the immediately previous post. Do not repeatedly use the same small set of products across a weekly batch.
+
+Never use these products or product families unless explicitly re-approved:
+
+- Ozarka / Ozarka Water
+- olive oil products
+- Liquid Death
+- Snapple
+- raw chicken, raw meat, bacon, Spam, or other visually unfit meat products
+
+Storefront heroes must not imply a store-specific haul when the products are not from that store. Trader Joe's storefronts are disabled for scheduled drafts unless the product set is explicitly Trader Joe's.
+
 `OPENAI_IMAGE_MODEL` controls image cost. Supported values:
 
 - `gpt-image-1-mini` cheaper default

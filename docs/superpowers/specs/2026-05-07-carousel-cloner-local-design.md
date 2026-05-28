@@ -109,6 +109,22 @@ The caption package includes:
 - per-slide overlay text
 - posting notes
 
+## BARE Product Selection Rules
+
+For scheduled BARE social drafts, product selection must use the broad BARE catalog rather than a small hardcoded History list. The History tab is allowed as a screenshot shortcut only; it is not allowed to define the product pool. If a selected catalog product is not currently visible in History, the app must use the Scan tab/manual barcode fallback to open the BARE product detail screen.
+
+Weekly batches must avoid repeating products from the immediately previous carousel. Do not fill a week with the same products just because they are easy to screenshot.
+
+Hard exclusions unless the user explicitly reverses them:
+
+- Ozarka / Ozarka Water
+- olive oil products
+- Liquid Death
+- Snapple
+- raw chicken, raw meat, bacon, Spam, or other visually unfit meat products
+
+Storefront heroes and products must make sense together. Do not use a Trader Joe's hero unless the products are Trader Joe's products. For general catalog items, use general grocery/storefront context instead of implying a store-specific haul.
+
 ## Error Handling
 
 The app should make failures actionable:

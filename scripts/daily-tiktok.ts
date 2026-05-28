@@ -20,7 +20,7 @@ type DraftResult = {
 const DEFAULT_POSTIZ_BASE_URL = "http://localhost:4007/api/public/v1";
 const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
-const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Trader Joe's", "Sprouts", "Kroger", "Publix", "H-E-B"];
+const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -51,24 +51,27 @@ function loadLocalEnv(filePath = path.join(process.cwd(), ".env.local")): void {
   }
 }
 
-function parseArgs(): { dryRun: boolean; count: number } {
+function parseArgs(): { dryRun: boolean; count: number; startDate?: string } {
   const args = new Set(process.argv.slice(2));
   const countArg = process.argv.find((arg) => arg.startsWith("--count="));
+  const startArg = process.argv.find((arg) => arg.startsWith("--start="));
   const count = countArg ? Number(countArg.split("=")[1]) : 3;
   return {
     dryRun: args.has("--dry-run"),
-    count: Number.isFinite(count) && count > 0 ? count : 3
+    count: Number.isFinite(count) && count > 0 ? count : 3,
+    startDate: startArg?.split("=")[1]
   };
 }
 
-function nextSlotDate(slot: string, index: number): Date {
+function nextSlotDate(slot: string, index: number, slotsPerDay: number, startDate?: string): Date {
   const [hour = "9", minute = "0"] = slot.split(":");
-  const date = new Date();
+  const date = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
+  date.setDate(date.getDate() + Math.floor(index / slotsPerDay));
   date.setHours(Number(hour), Number(minute), 0, 0);
-  if (date.getTime() <= Date.now()) {
+  if (!startDate && date.getTime() <= Date.now()) {
     date.setDate(date.getDate() + 1);
   }
-  date.setMinutes(date.getMinutes() + index);
+  date.setMinutes(date.getMinutes() + (index % slotsPerDay));
   return date;
 }
 
@@ -136,7 +139,13 @@ async function assertCarouselReadyForUpload(pkg: GeneratedPackage, imagePaths: s
   }
 }
 
-async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: boolean, index: number): Promise<DraftResult> {
+async function buildOneDraft(
+  slotDate: Date,
+  integrationId: string,
+  dryRun: boolean,
+  index: number,
+  excludeProductBarcodes: string[]
+): Promise<DraftResult> {
   const storeName = storeForDraft(index);
   const job = await createJob({
     url: "https://www.tiktok.com/@downloadbare",
@@ -149,7 +158,8 @@ async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: bool
     storeName,
     useStockHeroImages: true,
     useBareSimulatorScreenshots: true,
-    requireBareSimulatorScreenshots: true
+    requireBareSimulatorScreenshots: true,
+    excludeProductBarcodes
   });
   const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
   const images = (pkg.generatedImages ?? []).map((relativePath) => path.join(snapshot.dir, relativePath));
@@ -203,12 +213,13 @@ async function buildOneDraft(slotDate: Date, integrationId: string, dryRun: bool
 
 async function main(): Promise<void> {
   loadLocalEnv();
-  const { dryRun, count } = parseArgs();
+  const { dryRun, count, startDate } = parseArgs();
   const baseUrl = process.env.POSTIZ_BASE_URL ?? DEFAULT_POSTIZ_BASE_URL;
   const profile = process.env.POSTIZ_TIKTOK_PROFILE ?? DEFAULT_TIKTOK_PROFILE;
   const slots = (process.env.POSTIZ_DAILY_SLOTS?.split(",") ?? DEFAULT_SLOTS).map((slot) => slot.trim()).filter(Boolean);
   const apiKey = process.env.POSTIZ_API_KEY;
   const results: DraftResult[] = [];
+  let previousProductBarcodes: string[] = [];
 
   let integrationId = "dry-run";
   if (!dryRun) {
@@ -221,7 +232,10 @@ async function main(): Promise<void> {
 
   for (let index = 0; index < count; index += 1) {
     const slot = slots[index % slots.length] ?? DEFAULT_SLOTS[index % DEFAULT_SLOTS.length];
-    results.push(await buildOneDraft(nextSlotDate(slot, index), integrationId, dryRun, index));
+    const result = await buildOneDraft(nextSlotDate(slot, index, slots.length, startDate), integrationId, dryRun, index, previousProductBarcodes);
+    results.push(result);
+    const pkg = JSON.parse(readFileSync(path.join(result.jobDir, "package.json"), "utf8")) as GeneratedPackage;
+    previousProductBarcodes = (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []));
   }
 
   console.log(

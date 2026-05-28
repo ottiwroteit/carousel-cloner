@@ -3,7 +3,6 @@ import path from "node:path";
 import { formatCaptionPackage } from "@/lib/export/captions";
 import { extractTikTokSource, type ExtractTikTokSourceResult } from "@/lib/extractors/tiktok";
 import { completeCarouselImages } from "@/lib/generator/complete-carousel-images";
-import { listBareHistoryProducts, type BareHistoryProduct } from "@/lib/generator/bare-simulator-screenshots";
 import { composeHeroImage, composeLocalHeroImage } from "@/lib/generator/compose-hero-image";
 import { composeProductImage } from "@/lib/generator/compose-product-image";
 import { generateOpenAIImages, getOpenAIImageConfig } from "@/lib/generator/openai-images";
@@ -35,6 +34,7 @@ type ProcessJobOptions = {
   generateOpenAIImages?: typeof generateOpenAIImages;
   findWebProductImage?: typeof findWebProductImage;
   readBareCatalog?: typeof readBareCatalog;
+  excludeProductBarcodes?: string[];
 };
 
 type ImageGenerationArtifact =
@@ -55,16 +55,6 @@ const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
 };
 
 const FALLBACK_REAL_STORE_HERO_IMAGES = Object.values(REAL_STORE_HERO_IMAGES).flat();
-const VISIBLE_BARE_HISTORY_FALLBACKS = [
-  { productName: "Hearty & Flavorful Black Bean Chili", brand: "Zoup!", score: 95 },
-  { productName: "Ozarka Water", brand: "Ozarka", score: 99 },
-  { productName: "snapple apple", brand: "Snapple", score: 95 },
-  { productName: "Extra Virgin Olive Oil", brand: "California Olive Ranch", score: 96 },
-  { productName: "Plain Greek Yogurt", brand: "Chobani", score: 92 },
-  { productName: "Frozen Sweet Corn", brand: "Green Giant", score: 91 },
-  { productName: "Mtn Don't Sparkling Water", brand: "Liquid Death", score: 99 },
-  { productName: "Total 0% Greek Yogurt", brand: "FAGE", score: 95 }
-] satisfies BareHistoryProduct[];
 
 function normalizeStoreKey(storeName?: string): string | undefined {
   return storeName?.toLowerCase().replaceAll("’", "'").trim();
@@ -95,51 +85,6 @@ function buildFallbackAnalysis(reason: string): SourceAnalysis {
     captionStrategy: "Frame the post as cleaner grocery finds worth saving before the next store trip.",
     whyItWorks: "It matches a TikTok-native shopping format: recognizable store context, real product proof, then BARE app validation."
   };
-}
-
-function productSearchWords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replaceAll("&", " ")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((word) => word.length >= 3 && !["and", "the", "with", "organic", "natural"].includes(word));
-}
-
-function catalogProductMatchesHistory(
-  product: Awaited<ReturnType<typeof readBareCatalog>>[number],
-  historyProduct: BareHistoryProduct
-): boolean {
-  const catalogWords = productSearchWords(`${product.brand} ${product.productName}`).join(" ");
-  const historyWords = productSearchWords(`${historyProduct.brand} ${historyProduct.productName}`);
-  const required = historyWords.slice(0, Math.min(historyWords.length, 3));
-  return required.length > 0 && required.every((word) => catalogWords.includes(word));
-}
-
-async function productsAvailableInBareHistory(
-  products: Awaited<ReturnType<typeof readBareCatalog>>,
-  requireHistory: boolean
-): Promise<typeof products> {
-  if (!requireHistory) {
-    return products;
-  }
-
-  const historyProducts = await listBareHistoryProducts({ maxScrolls: 0 });
-  let filtered = products.filter((product) => historyProducts.some((historyProduct) => catalogProductMatchesHistory(product, historyProduct)));
-
-  if (filtered.length < 3) {
-    filtered = products.filter((product) =>
-      VISIBLE_BARE_HISTORY_FALLBACKS.some((historyProduct) => catalogProductMatchesHistory(product, historyProduct))
-    );
-  }
-
-  if (filtered.length < 3) {
-    throw new Error(
-      `BARE History only matched ${filtered.length} catalog product(s); cannot build a reliable 3-product carousel from simulator History.`
-    );
-  }
-
-  return filtered;
 }
 
 async function generateLocalImagesWithRealProducts(
@@ -247,8 +192,10 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   await updateJobStatus(id, { state: "generating_copy", progress: 70, message: "Generating captions and slide text" }, root);
 
   const catalogReader = options.readBareCatalog ?? readBareCatalog;
-  const historyRequired = Boolean(options.useBareSimulatorScreenshots && options.requireBareSimulatorScreenshots);
-  const catalogProducts = selectBareProducts(await productsAvailableInBareHistory(await catalogReader(), historyRequired), 3, Math.random, {
+  const availableProducts = await catalogReader({ preferWithImages: false });
+  const excluded = new Set(options.excludeProductBarcodes ?? []);
+  const eligibleProducts = availableProducts.filter((product) => !excluded.has(product.barcode));
+  const catalogProducts = selectBareProducts(eligibleProducts.length >= 3 ? eligibleProducts : availableProducts, 3, Math.random, {
     storeName: options.storeName
   });
   if (catalogProducts.length === 0) {
