@@ -112,7 +112,7 @@ export async function createPostizDraft({
             duet: false,
             stitch: false,
             comment: true,
-            autoAddMusic: "no",
+            autoAddMusic: "yes",
             brand_content_toggle: false,
             brand_organic_toggle: false,
             content_posting_method: "UPLOAD"
