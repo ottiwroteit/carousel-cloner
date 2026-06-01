@@ -5,22 +5,36 @@ import { formatCaptionPackage } from "../lib/export/captions";
 import { completeCarouselImages } from "../lib/generator/complete-carousel-images";
 import { processJob } from "../lib/generator/pipeline";
 import { createJob, writeJobArtifact, writeJobTextArtifact } from "../lib/jobs/store";
-import { createPostizDraft, listPostizIntegrations, uploadPostizImage, type PostizIntegration } from "../lib/postiz/client";
+import {
+  createPostizDraft,
+  listPostizIntegrations,
+  listPostizPosts,
+  uploadPostizImage,
+  type PostizIntegration,
+  type PostizPostSummary
+} from "../lib/postiz/client";
 import type { GeneratedPackage, StyleProfile } from "../lib/types";
+
+type PlatformDraft = {
+  platform: string;
+  integrationId: string;
+  postId?: string;
+  response?: unknown;
+};
 
 type DraftResult = {
   jobId: string;
   jobDir: string;
   date: string;
-  integrationId: string;
   imageCount: number;
-  postizResponse?: unknown;
+  platforms: PlatformDraft[];
 };
 
 const DEFAULT_POSTIZ_BASE_URL = "http://localhost:4007/api/public/v1";
 const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
 const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
+const MIN_POST_GAP_MS = 3 * 60 * 60 * 1000;
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -51,15 +65,18 @@ function loadLocalEnv(filePath = path.join(process.cwd(), ".env.local")): void {
   }
 }
 
-function parseArgs(): { dryRun: boolean; count: number; startDate?: string } {
+function parseArgs(): { dryRun: boolean; count: number; startDate?: string; offset: number } {
   const args = new Set(process.argv.slice(2));
   const countArg = process.argv.find((arg) => arg.startsWith("--count="));
   const startArg = process.argv.find((arg) => arg.startsWith("--start="));
+  const offsetArg = process.argv.find((arg) => arg.startsWith("--offset="));
   const count = countArg ? Number(countArg.split("=")[1]) : 3;
+  const offset = offsetArg ? Number(offsetArg.split("=")[1]) : 0;
   return {
     dryRun: args.has("--dry-run"),
     count: Number.isFinite(count) && count > 0 ? count : 3,
-    startDate: startArg?.split("=")[1]
+    startDate: startArg?.split("=")[1],
+    offset: Number.isFinite(offset) && offset > 0 ? offset : 0
   };
 }
 
@@ -71,7 +88,6 @@ function nextSlotDate(slot: string, index: number, slotsPerDay: number, startDat
   if (!startDate && date.getTime() <= Date.now()) {
     date.setDate(date.getDate() + 1);
   }
-  date.setMinutes(date.getMinutes() + (index % slotsPerDay));
   return date;
 }
 
@@ -86,22 +102,32 @@ function captionForPackage(pkg: GeneratedPackage): string {
   return caption.length > 2150 ? caption.slice(0, 2147).trimEnd() + "..." : caption;
 }
 
-function findTikTokIntegration(integrations: PostizIntegration[], profile: string): PostizIntegration {
+function findIntegration(integrations: PostizIntegration[], identifier: string, profile: string): PostizIntegration {
   const match = integrations.find(
     (integration) =>
-      integration.identifier === "tiktok" &&
+      (integration.identifier ?? "").toLowerCase() === identifier.toLowerCase() &&
       [integration.profile, integration.name].filter(Boolean).some((value) => value?.toLowerCase() === profile.toLowerCase())
   );
 
   if (!match) {
     const available = integrations
-      .filter((integration) => integration.identifier === "tiktok")
+      .filter((integration) => (integration.identifier ?? "").toLowerCase() === identifier.toLowerCase())
       .map((integration) => integration.profile ?? integration.name ?? integration.id)
       .join(", ");
-    throw new Error(`TikTok integration "${profile}" was not found in Postiz. Available TikTok profiles: ${available || "none"}.`);
+    throw new Error(`${identifier} integration "${profile}" was not found in Postiz. Available ${identifier} profiles: ${available || "none"}.`);
   }
 
   return match;
+}
+
+function findOptionalInstagramIntegration(integrations: PostizIntegration[], profile: string): PostizIntegration | undefined {
+  return integrations.find((integration) => {
+    const identifier = (integration.identifier ?? "").toLowerCase();
+    if (!identifier.includes("instagram")) {
+      return false;
+    }
+    return [integration.profile, integration.name].filter(Boolean).some((value) => value?.toLowerCase() === profile.toLowerCase());
+  });
 }
 
 async function finalizePackage(jobId: string, jobDir: string, pkg: GeneratedPackage): Promise<GeneratedPackage> {
@@ -139,101 +165,258 @@ async function assertCarouselReadyForUpload(pkg: GeneratedPackage, imagePaths: s
   }
 }
 
+function assertAllowedProducts(pkg: GeneratedPackage): void {
+  const bannedTerms = [/\bozarka\b/i, /\bolive\s+oil\b/i, /\bliquid\s+death\b/i, /\bsnapple\b/i];
+  const unsafeTerms = [
+    /\braw\b/i,
+    /\bchicken\b/i,
+    /\bmeat\b/i,
+    /\bpoultry\b/i,
+    /\bbacon\b/i,
+    /\bspam\b/i
+  ];
+  const seen = new Set<string>();
+
+  for (const slide of pkg.carouselSlides ?? []) {
+    if (!slide.productName || slide.kind !== "product-photo") {
+      continue;
+    }
+    const key = `${slide.barcode ?? ""}:${slide.productName.toLowerCase()}`;
+    if (seen.has(key)) {
+      throw new Error(`Upload blocked: repeated product detected in package (${slide.productName}).`);
+    }
+    seen.add(key);
+
+    const text = `${slide.productName} ${slide.bareSummary ?? ""}`;
+    if (bannedTerms.some((term) => term.test(text))) {
+      throw new Error(`Upload blocked: banned product detected (${slide.productName}).`);
+    }
+    if (unsafeTerms.some((term) => term.test(text))) {
+      throw new Error(`Upload blocked: unsafe product detected (${slide.productName}).`);
+    }
+  }
+}
+
+function parseIsoDate(value: string | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isWithinGap(candidate: Date, existing: Date): boolean {
+  return Math.abs(candidate.getTime() - existing.getTime()) < MIN_POST_GAP_MS;
+}
+
+function resolveDraftDate(candidate: Date, reservedDates: Date[]): Date {
+  let scheduled = new Date(candidate);
+
+  while (true) {
+    const conflict = reservedDates.find((existing) => isWithinGap(scheduled, existing));
+    if (!conflict) {
+      return scheduled;
+    }
+
+    scheduled = new Date(conflict.getTime() + MIN_POST_GAP_MS);
+  }
+}
+
+function collectReservedDates(posts: PostizPostSummary[], integrationIds: string[]): Date[] {
+  const allowedIds = new Set(integrationIds);
+  return posts
+    .filter((post) => post.integrationIds.some((integrationId) => allowedIds.has(integrationId)))
+    .map((post) => parseIsoDate(post.date))
+    .filter((date): date is Date => Boolean(date));
+}
+
+function extractPostId(value: unknown): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const nested = extractPostId(entry);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["id", "_id", "postId"]) {
+      if (typeof record[key] === "string" && record[key]) {
+        return record[key] as string;
+      }
+    }
+    for (const nestedKey of ["data", "post", "posts", "result"]) {
+      const nested = extractPostId(record[nestedKey]);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 async function buildOneDraft(
   slotDate: Date,
-  integrationId: string,
+  integrations: PostizIntegration[],
   dryRun: boolean,
   index: number,
-  excludeProductBarcodes: string[]
+  excludeProductBarcodes: string[],
+  retryRejectedBarcodes: string[] = []
 ): Promise<DraftResult> {
   const storeName = storeForDraft(index);
-  const job = await createJob({
-    url: "https://www.tiktok.com/@downloadbare",
-    profile: defaultProfile
-  });
+  let lastError: unknown;
 
-  const snapshot = await processJob(job.status.id, {
-    useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
-    forceStorefrontHero: true,
-    storeName,
-    useStockHeroImages: true,
-    useBareSimulatorScreenshots: true,
-    requireBareSimulatorScreenshots: true,
-    excludeProductBarcodes
-  });
-  const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
-  const images = (pkg.generatedImages ?? []).map((relativePath) => path.join(snapshot.dir, relativePath));
-  const caption = captionForPackage(pkg);
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    const job = await createJob({
+      url: "https://www.tiktok.com/@downloadbare",
+      profile: defaultProfile
+    });
 
-  if (images.length === 0) {
-    throw new Error(`Job ${job.status.id} did not generate uploadable images.`);
+    try {
+      const snapshot = await processJob(job.status.id, {
+        useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
+        forceStorefrontHero: true,
+        storeName,
+        useStockHeroImages: true,
+        useBareSimulatorScreenshots: process.env.BARE_USE_SIMULATOR_SCREENSHOTS === "1",
+        requireBareSimulatorScreenshots: false,
+        excludeProductBarcodes: [...excludeProductBarcodes, ...retryRejectedBarcodes]
+      });
+      const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
+      const images = (pkg.generatedImages ?? []).map((relativePath) => path.join(snapshot.dir, relativePath));
+      const caption = captionForPackage(pkg);
+
+      if (images.length === 0) {
+        throw new Error(`Job ${job.status.id} did not generate uploadable images.`);
+      }
+      await assertCarouselReadyForUpload(pkg, images);
+      assertAllowedProducts(pkg);
+
+      if (dryRun) {
+        return {
+          jobId: job.status.id,
+          jobDir: snapshot.dir,
+          date: slotDate.toISOString(),
+          imageCount: images.length,
+          platforms: integrations.map((integration) => ({
+            platform: integration.identifier ?? integration.name ?? integration.id,
+            integrationId: integration.id
+          }))
+        };
+      }
+
+      const baseUrl = process.env.POSTIZ_BASE_URL ?? DEFAULT_POSTIZ_BASE_URL;
+      const apiKey = process.env.POSTIZ_API_KEY;
+      if (!apiKey) {
+        throw new Error("POSTIZ_API_KEY is missing from .env.local.");
+      }
+
+      const uploaded = [];
+      for (const image of images) {
+        uploaded.push(await uploadPostizImage(baseUrl, apiKey, image));
+      }
+
+      const platforms: PlatformDraft[] = [];
+      for (const integration of integrations) {
+        const response = await createPostizDraft({
+          baseUrl,
+          apiKey,
+          integrationId: integration.id,
+          integrationIdentifier: integration.identifier,
+          date: slotDate.toISOString(),
+          caption,
+          images: uploaded,
+          type: process.env.POSTIZ_POST_TYPE === "schedule" ? "schedule" : "draft"
+        });
+        platforms.push({
+          platform: integration.identifier ?? integration.name ?? integration.id,
+          integrationId: integration.id,
+          postId: extractPostId(response),
+          response
+        });
+      }
+
+      return {
+        jobId: job.status.id,
+        jobDir: snapshot.dir,
+        date: slotDate.toISOString(),
+        imageCount: uploaded.length,
+        platforms
+      };
+    } catch (error) {
+      lastError = error;
+      const selectionPath = path.join(job.dir, "bare-product-selection.json");
+      if (existsSync(selectionPath)) {
+        const selected = JSON.parse(readFileSync(selectionPath, "utf8")) as Array<{ barcode?: string; productName?: string }>;
+        for (const product of selected) {
+          if (product.barcode && !retryRejectedBarcodes.includes(product.barcode)) {
+            retryRejectedBarcodes.push(product.barcode);
+          }
+        }
+        const names = selected.map((product) => product.productName ?? product.barcode).filter(Boolean).join(", ");
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(`Draft ${index + 1} attempt ${attempt} failed: ${reason}; retrying with replacement products. Rejected: ${names}`);
+        continue;
+      }
+      throw error;
+    }
   }
-  await assertCarouselReadyForUpload(pkg, images);
 
-  if (dryRun) {
-    return {
-      jobId: job.status.id,
-      jobDir: snapshot.dir,
-      date: slotDate.toISOString(),
-      integrationId,
-      imageCount: images.length
-    };
-  }
-
-  const baseUrl = process.env.POSTIZ_BASE_URL ?? DEFAULT_POSTIZ_BASE_URL;
-  const apiKey = process.env.POSTIZ_API_KEY;
-  if (!apiKey) {
-    throw new Error("POSTIZ_API_KEY is missing from .env.local.");
-  }
-
-  const uploaded = [];
-  for (const image of images) {
-    uploaded.push(await uploadPostizImage(baseUrl, apiKey, image));
-  }
-
-  const postizResponse = await createPostizDraft({
-    baseUrl,
-    apiKey,
-    integrationId,
-    date: slotDate.toISOString(),
-    caption,
-    images: uploaded,
-    type: process.env.POSTIZ_POST_TYPE === "schedule" ? "schedule" : "draft"
-  });
-
-  return {
-    jobId: job.status.id,
-    jobDir: snapshot.dir,
-    date: slotDate.toISOString(),
-    integrationId,
-    imageCount: uploaded.length,
-    postizResponse
-  };
+  throw lastError instanceof Error ? lastError : new Error(`Draft ${index + 1} failed after replacement attempts.`);
 }
 
 async function main(): Promise<void> {
   loadLocalEnv();
-  const { dryRun, count, startDate } = parseArgs();
+  const { dryRun, count, startDate, offset } = parseArgs();
   const baseUrl = process.env.POSTIZ_BASE_URL ?? DEFAULT_POSTIZ_BASE_URL;
   const profile = process.env.POSTIZ_TIKTOK_PROFILE ?? DEFAULT_TIKTOK_PROFILE;
   const slots = (process.env.POSTIZ_DAILY_SLOTS?.split(",") ?? DEFAULT_SLOTS).map((slot) => slot.trim()).filter(Boolean);
   const apiKey = process.env.POSTIZ_API_KEY;
   const results: DraftResult[] = [];
   let previousProductBarcodes: string[] = [];
+  const targetIntegrations: PostizIntegration[] = [];
+  const reservedDates: Date[] = [];
 
-  let integrationId = "dry-run";
-  if (!dryRun) {
-    if (!apiKey) {
-      throw new Error("POSTIZ_API_KEY is missing from .env.local.");
-    }
-    const integrations = await listPostizIntegrations(baseUrl, apiKey as string);
-    integrationId = findTikTokIntegration(integrations, profile).id;
+  if (!apiKey) {
+    throw new Error("POSTIZ_API_KEY is missing from .env.local.");
+  }
+
+  const integrations = await listPostizIntegrations(baseUrl, apiKey as string);
+  const tiktokIntegration = findIntegration(integrations, "tiktok", profile);
+  targetIntegrations.push(tiktokIntegration);
+
+  const instagramIntegration = findOptionalInstagramIntegration(integrations, profile);
+  if (instagramIntegration) {
+    targetIntegrations.push(instagramIntegration);
+  }
+
+  const existingPosts = await listPostizPosts(baseUrl, apiKey as string);
+  reservedDates.push(...collectReservedDates(existingPosts, targetIntegrations.map((integration) => integration.id)));
+
+  if (dryRun) {
+    reservedDates.push(new Date());
   }
 
   for (let index = 0; index < count; index += 1) {
-    const slot = slots[index % slots.length] ?? DEFAULT_SLOTS[index % DEFAULT_SLOTS.length];
-    const result = await buildOneDraft(nextSlotDate(slot, index, slots.length, startDate), integrationId, dryRun, index, previousProductBarcodes);
+    const scheduleIndex = index + offset;
+    const slot = slots[scheduleIndex % slots.length] ?? DEFAULT_SLOTS[scheduleIndex % DEFAULT_SLOTS.length];
+    const slotDate = resolveDraftDate(nextSlotDate(slot, scheduleIndex, slots.length, startDate), reservedDates);
+    const result = await buildOneDraft(
+      slotDate,
+      targetIntegrations,
+      dryRun,
+      scheduleIndex,
+      previousProductBarcodes
+    );
     results.push(result);
+    reservedDates.push(new Date(result.date));
     const pkg = JSON.parse(readFileSync(path.join(result.jobDir, "package.json"), "utf8")) as GeneratedPackage;
     previousProductBarcodes = (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []));
   }
@@ -244,6 +427,12 @@ async function main(): Promise<void> {
         dryRun,
         postType: process.env.POSTIZ_POST_TYPE === "schedule" ? "schedule" : "draft",
         profile,
+        integrations: targetIntegrations.map((integration) => ({
+          id: integration.id,
+          identifier: integration.identifier,
+          profile: integration.profile,
+          name: integration.name
+        })),
         results
       },
       null,

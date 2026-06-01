@@ -119,7 +119,7 @@ async function axeType(axePath: string, udid: string, text: string): Promise<voi
 }
 
 async function typeBarcodeIntoFocusedField(barcode: string): Promise<void> {
-  const safeBarcode = barcode.replace(/[^0-9]/g, "");
+  const safeBarcode = barcodeForManualEntry(barcode);
   const script = `
 tell application "Simulator" to activate
 delay 0.15
@@ -133,6 +133,11 @@ tell application "System Events"
   end tell
 end tell`;
   await run("osascript", ["-e", script]);
+}
+
+function barcodeForManualEntry(barcode: string): string {
+  const digits = barcode.replace(/[^0-9]/g, "");
+  return digits.length === 11 ? `0${digits}` : digits;
 }
 
 async function axeTree(axePath: string, udid: string): Promise<AxeNode[]> {
@@ -256,6 +261,13 @@ async function navigateToHistory(axePath: string, udid: string, simulatorId: str
 
 async function closeProductDetailIfOpen(axePath: string, udid: string): Promise<void> {
   const labels = await axeLabels(axePath, udid).catch((): string[] => []);
+  if (labels.includes("Product not found") || labels.includes("OK")) {
+    await axeTapLabel(axePath, udid, "OK", 0.45).catch(async () => {
+      await axeTap(axePath, udid, 471, 1191, 0.45, "simulator");
+    });
+    return;
+  }
+
   if (labels.includes("Scan History") || labels.includes("Scan Product")) {
     return;
   }
@@ -438,7 +450,8 @@ async function driveBarcodeProductOpen(axePath: string, udid: string, simulatorI
   await navigateToScan(axePath, udid, simulatorId);
 
   await axeTap(axePath, udid, 170, 724, 0.35, "simulator");
-  await typeBarcodeIntoFocusedField(barcode).catch(async () => axeType(axePath, udid, barcode));
+  await typeBarcodeIntoFocusedField(barcode).catch(() => undefined);
+  await axeType(axePath, udid, barcodeForManualEntry(barcode));
   await axeTap(axePath, udid, 363, 724, 3, "simulator");
 }
 
@@ -469,6 +482,9 @@ export async function captureBareProductScreenshot({
     if ((await hasProductDetailSheet(rawPath)) && labelsMatchProductDetail(labels, productName)) {
       await normalizeScreenshot(rawPath, outputPath);
       return true;
+    }
+    if (labels.includes("Product not found") || labels.includes("OK")) {
+      await closeProductDetailIfOpen(axePath, udid);
     }
     return false;
   };
