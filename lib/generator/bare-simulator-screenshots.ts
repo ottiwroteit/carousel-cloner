@@ -118,8 +118,7 @@ async function axeType(axePath: string, udid: string, text: string): Promise<voi
   await run(axePath, ["type", text, "--udid", udid]);
 }
 
-async function typeBarcodeIntoFocusedField(barcode: string): Promise<void> {
-  const safeBarcode = barcodeForManualEntry(barcode);
+async function clearFocusedField(): Promise<void> {
   const script = `
 tell application "Simulator" to activate
 delay 0.15
@@ -128,8 +127,6 @@ tell application "System Events"
     keystroke "a" using command down
     delay 0.05
     key code 51
-    delay 0.05
-    keystroke "${safeBarcode}"
   end tell
 end tell`;
   await run("osascript", ["-e", script]);
@@ -245,6 +242,7 @@ async function navigateToHistory(axePath: string, udid: string, simulatorId: str
   await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
   await new Promise((resolve) => setTimeout(resolve, 800));
 
+  await ensureBarePreviewOpen(axePath, udid);
   await closeProductDetailIfOpen(axePath, udid);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await axeTapLabel(axePath, udid, "History, tab, 4 of 5").catch(async () => {
@@ -261,6 +259,9 @@ async function navigateToHistory(axePath: string, udid: string, simulatorId: str
 
 async function closeProductDetailIfOpen(axePath: string, udid: string): Promise<void> {
   const labels = await axeLabels(axePath, udid).catch((): string[] => []);
+  if (labels.some((label) => label.includes("Uncaught Error"))) {
+    throw new Error("Cannot capture BARE screenshot: BARE simulator is showing a React Native error overlay.");
+  }
   if (labels.includes("Product not found") || labels.includes("OK")) {
     await axeTapLabel(axePath, udid, "OK", 0.45).catch(async () => {
       await axeTap(axePath, udid, 471, 1191, 0.45, "simulator");
@@ -276,10 +277,29 @@ async function closeProductDetailIfOpen(axePath: string, udid: string): Promise<
   await axeTap(axePath, udid, 368, 137, 0.35, "physical").catch(() => undefined);
 }
 
+async function ensureBarePreviewOpen(axePath: string, udid: string): Promise<void> {
+  let labels = await axeLabels(axePath, udid).catch((): string[] => []);
+  if (labels.some((label) => label.includes("Uncaught Error"))) {
+    throw new Error("Cannot capture BARE screenshot: BARE simulator is showing a React Native error overlay.");
+  }
+
+  const serverLabel = labels.find((label) => /^http:\/\/localhost:808\d$/.test(label));
+  if (serverLabel) {
+    await axeTapLabel(axePath, udid, serverLabel, 3).catch(async () => {
+      await axeTap(axePath, udid, 199, serverLabel.endsWith("8082") ? 238 : 183, 3, "simulator");
+    });
+    labels = await axeLabels(axePath, udid).catch((): string[] => []);
+    if (labels.some((label) => label.includes("Uncaught Error"))) {
+      throw new Error("Cannot capture BARE screenshot: BARE simulator preview opened to a React Native error overlay.");
+    }
+  }
+}
+
 async function navigateToScan(axePath: string, udid: string, simulatorId: string): Promise<void> {
   await run("xcrun", ["simctl", "openurl", simulatorId, "bare://"]).catch(() => undefined);
   await new Promise((resolve) => setTimeout(resolve, 800));
 
+  await ensureBarePreviewOpen(axePath, udid);
   await closeProductDetailIfOpen(axePath, udid);
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await axeTapLabel(axePath, udid, "Scan, tab, 2 of 5").catch(async () => {
@@ -450,7 +470,7 @@ async function driveBarcodeProductOpen(axePath: string, udid: string, simulatorI
   await navigateToScan(axePath, udid, simulatorId);
 
   await axeTap(axePath, udid, 170, 724, 0.35, "simulator");
-  await typeBarcodeIntoFocusedField(barcode).catch(() => undefined);
+  await clearFocusedField().catch(() => undefined);
   await axeType(axePath, udid, barcodeForManualEntry(barcode));
   await axeTap(axePath, udid, 363, 724, 3, "simulator");
 }
