@@ -285,8 +285,8 @@ async function buildOneDraft(
         forceStorefrontHero: true,
         storeName,
         useStockHeroImages: true,
-        useBareSimulatorScreenshots: process.env.BARE_USE_SIMULATOR_SCREENSHOTS === "1",
-        requireBareSimulatorScreenshots: false,
+        useBareSimulatorScreenshots: true,
+        requireBareSimulatorScreenshots: true,
         excludeProductBarcodes: [...excludeProductBarcodes, ...retryRejectedBarcodes]
       });
       const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
