@@ -170,7 +170,14 @@ function assertAllowedProducts(pkg: GeneratedPackage): void {
   const unsafeTerms = [
     /\braw\b/i,
     /\bchicken\b/i,
+    /\bbeef\b/i,
+    /\bpork\b/i,
+    /\bturkey\b/i,
     /\bmeat\b/i,
+    /\bsalmon\b/i,
+    /\btuna\b/i,
+    /\bfish\b/i,
+    /\b(stick|sticks|jerky)\b/i,
     /\bpoultry\b/i,
     /\bbacon\b/i,
     /\bspam\b/i

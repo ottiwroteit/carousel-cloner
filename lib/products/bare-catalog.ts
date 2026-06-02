@@ -28,6 +28,8 @@ const UNSAFE_SCREEN_TERMS = [
   /\braw\b/i,
   /\bchicken\s+(breast|thigh|tender|tenders|wing|wings|drumstick|cutlet|cutlets)\b/i,
   /\bground\s+(beef|chicken|turkey|pork)\b/i,
+  /\b(beef|pork|turkey|chicken|meat|salmon|tuna|fish)\b/i,
+  /\b(stick|sticks|jerky)\b/i,
   /\b(steak|pork\s+chop|pork\s+chops|pork\s+belly)\b/i,
   /\bspam\b/i,
   /\bbacon\b/i
