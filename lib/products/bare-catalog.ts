@@ -94,18 +94,14 @@ function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
-function isMarketable(row: Record<string, string>, requireImage: boolean): boolean {
+function isMarketable(row: Record<string, string>): boolean {
   const name = row.product_name?.trim() ?? "";
   const brand = row.brand?.trim() ?? "";
   const barcode = row.barcode?.trim() ?? "";
   const imageUrl = row.image_url?.trim() ?? "";
   const screenText = `${brand} ${name} ${row.category ?? ""} ${row.summary ?? ""}`;
 
-  if (!barcode || !brand || !name) {
-    return false;
-  }
-
-  if (requireImage && (!imageUrl || /^null$/i.test(imageUrl))) {
+  if (!barcode || !brand || !name || !imageUrl || /^null$/i.test(imageUrl)) {
     return false;
   }
 
@@ -187,9 +183,7 @@ export async function readBareCatalog({
   const filename = preferWithImages ? WITH_IMAGES_FILE : ALL_SCANNABLE_FILE;
   const filePath = path.join(dataDir, filename);
   const text = await readFile(filePath, "utf8");
-  return parseCsv(text)
-    .filter((row) => isMarketable(row, preferWithImages))
-    .map(toProduct);
+  return parseCsv(text).filter(isMarketable).map(toProduct);
 }
 
 export function selectBareProducts(
@@ -200,12 +194,13 @@ export function selectBareProducts(
 ): BareProduct[] {
   const preferred = products.filter(
     (product) =>
+      product.imageUrl &&
       typeof product.score === "number" &&
       product.score >= 90 &&
       /excellent/i.test(product.label) &&
       matchesSelectedStore(product, options.storeName)
   );
-  const fallback = products.filter((product) => matchesSelectedStore(product, options.storeName));
+  const fallback = products.filter((product) => product.imageUrl && matchesSelectedStore(product, options.storeName));
   const eligible = preferred.length >= count ? preferred : fallback;
   const remaining = [...eligible];
   const selected: BareProduct[] = [];
