@@ -496,10 +496,11 @@ export async function captureBareProductScreenshot({
   const udid = await resolveSimulatorUdid(simulatorId);
   const axePath = await findAxePath();
 
-  const captureAndValidate = async (): Promise<boolean> => {
+  const captureAndValidate = async (strictProductText: boolean): Promise<boolean> => {
     await screenshot(simulatorId, rawPath);
     const labels = await axeLabels(axePath, udid);
-    if ((await hasProductDetailSheet(rawPath)) && labelsMatchProductDetail(labels, productName)) {
+    const hasProductDetail = await hasProductDetailSheet(rawPath);
+    if (hasProductDetail && (!strictProductText || labelsMatchProductDetail(labels, productName))) {
       await normalizeScreenshot(rawPath, outputPath);
       return true;
     }
@@ -512,7 +513,7 @@ export async function captureBareProductScreenshot({
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
-      if (await captureAndValidate()) {
+      if (await captureAndValidate(true)) {
         return relativePath;
       }
     } catch {
@@ -521,7 +522,7 @@ export async function captureBareProductScreenshot({
 
     try {
       await driveBarcodeProductOpen(axePath, udid, simulatorId, barcode);
-      if (await captureAndValidate()) {
+      if (await captureAndValidate(false)) {
         return relativePath;
       }
     } catch {

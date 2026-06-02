@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { formatCaptionPackage } from "../lib/export/captions";
@@ -167,6 +167,7 @@ async function assertCarouselReadyForUpload(pkg: GeneratedPackage, imagePaths: s
 
 function assertAllowedProducts(pkg: GeneratedPackage): void {
   const bannedTerms = [/\bozarka\b/i, /\bolive\s+oil\b/i, /\bliquid\s+death\b/i, /\bsnapple\b/i];
+  const malformedTerms = [/^(meal|food|sauce|beverage|drink|snack|candy|cheese|water|chips|salt|sugar|oil)$/i];
   const unsafeTerms = [
     /\braw\b/i,
     /\bchicken\b/i,
@@ -174,9 +175,29 @@ function assertAllowedProducts(pkg: GeneratedPackage): void {
     /\bpork\b/i,
     /\bturkey\b/i,
     /\bmeat\b/i,
+    /\bsausage\b/i,
+    /\bpepperoni\b/i,
+    /\bham\b/i,
+    /\bprosciutto\b/i,
+    /\bsalami\b/i,
+    /\bhot\s+dog\b/i,
+    /\bhotdog\b/i,
     /\bsalmon\b/i,
     /\btuna\b/i,
     /\bfish\b/i,
+    /\bwhiting\b/i,
+    /\bcod\b/i,
+    /\btilapia\b/i,
+    /\btrout\b/i,
+    /\bhalibut\b/i,
+    /\bcatfish\b/i,
+    /\bsardines?\b/i,
+    /\banchov(y|ies)\b/i,
+    /\bshrimp\b/i,
+    /\bcrab\b/i,
+    /\blobster\b/i,
+    /\bseafood\b/i,
+    /\bfillets?\b/i,
     /\b(stick|sticks|jerky)\b/i,
     /\bpoultry\b/i,
     /\bbacon\b/i,
@@ -195,6 +216,16 @@ function assertAllowedProducts(pkg: GeneratedPackage): void {
     seen.add(key);
 
     const text = `${slide.productName} ${slide.bareSummary ?? ""}`;
+    const productWords = slide.productName
+      .replace(/[^a-z0-9\s]/gi, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 2);
+    if (productWords.length < 2) {
+      throw new Error(`Upload blocked: product name is too generic (${slide.productName}).`);
+    }
+    if (malformedTerms.some((term) => term.test(slide.productName.trim()))) {
+      throw new Error(`Upload blocked: generic product name detected (${slide.productName}).`);
+    }
     if (bannedTerms.some((term) => term.test(text))) {
       throw new Error(`Upload blocked: banned product detected (${slide.productName}).`);
     }
@@ -267,6 +298,39 @@ function extractPostId(value: unknown): string | undefined {
   }
 
   return undefined;
+}
+
+function readPackageProductBarcodes(packagePath: string): string[] {
+  try {
+    const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as GeneratedPackage;
+    return (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []));
+  } catch {
+    return [];
+  }
+}
+
+function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outputs", "jobs")): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  const barcodes = new Set<string>();
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const packagePath = path.join(root, entry.name, "package.json");
+    if (!existsSync(packagePath)) {
+      continue;
+    }
+
+    for (const barcode of readPackageProductBarcodes(packagePath)) {
+      barcodes.add(barcode);
+    }
+  }
+
+  return [...barcodes];
 }
 
 async function buildOneDraft(
@@ -387,7 +451,7 @@ async function main(): Promise<void> {
   const slots = (process.env.POSTIZ_DAILY_SLOTS?.split(",") ?? DEFAULT_SLOTS).map((slot) => slot.trim()).filter(Boolean);
   const apiKey = process.env.POSTIZ_API_KEY;
   const results: DraftResult[] = [];
-  let previousProductBarcodes: string[] = [];
+  const usedProductBarcodes = new Set<string>(collectHistoricalProductBarcodes());
   const targetIntegrations: PostizIntegration[] = [];
   const reservedDates: Date[] = [];
 
@@ -420,12 +484,14 @@ async function main(): Promise<void> {
       targetIntegrations,
       dryRun,
       scheduleIndex,
-      previousProductBarcodes
+      [...usedProductBarcodes]
     );
     results.push(result);
     reservedDates.push(new Date(result.date));
     const pkg = JSON.parse(readFileSync(path.join(result.jobDir, "package.json"), "utf8")) as GeneratedPackage;
-    previousProductBarcodes = (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []));
+    for (const barcode of (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []))) {
+      usedProductBarcodes.add(barcode);
+    }
   }
 
   console.log(
