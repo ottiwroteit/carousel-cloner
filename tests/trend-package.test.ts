@@ -89,6 +89,35 @@ describe("buildTrendPackage", () => {
     expect(pkg.imagePrompts?.[0]).toContain("no specific store branding");
   });
 
+  test("uses generic copy when a storefront hero is forced for mixed products", () => {
+    const pkg = buildTrendPackage({
+      now: new Date("2026-06-10T12:00:00Z"),
+      random: () => 0,
+      forceStorefrontHero: true,
+      storeName: "Publix",
+      bareProducts: [
+        {
+          barcode: "111",
+          brand: "Siete",
+          productName: "Spicy Salsa Roja",
+          category: "Condiments",
+          score: 99,
+          label: "Excellent",
+          imageUrl: "https://example.com/siete.png",
+          source: "manual",
+          summary: ""
+        }
+      ]
+    });
+
+    expect(pkg.title).toBe("What I would grab this week");
+    expect(pkg.mainCaption).not.toContain("at Publix");
+    expect(pkg.alternateHooks.join("\n")).not.toContain("at Publix");
+    expect(pkg.carouselSlides?.[0].storeName).toBe("Publix");
+    expect(pkg.imagePrompts?.[0]).toContain("recognizable Publix grocery store");
+    expect(pkg.imagePrompts?.[1]).toContain("inside a grocery store");
+  });
+
   test("attaches generated images only to generated-photo slides", () => {
     const pkg = attachGeneratedImagesToSlides(
       buildTrendPackage({

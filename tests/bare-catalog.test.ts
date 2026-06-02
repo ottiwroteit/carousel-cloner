@@ -25,6 +25,7 @@ describe("readBareCatalog", () => {
 999,Brand,Missing Image,Snacks,90,Excellent,,manual,Skip,now,now
 777,Kirkland Signature,Hickory Smoked Bacon,Protein,48,Limit,https://example.com/bacon.png,manual,"Pork belly, salt, sugar.",now,now
 888,Fresh Brand,Chicken Breast,Protein,90,Excellent,https://example.com/chicken.png,manual,Raw chicken breast package,now,now
+889,Heinz,Distilled white vinegar(unidades),Pantry,99,Excellent,https://example.com/vinegar.png,manual,Malformed import name,now,now
 `,
       "utf8"
     );

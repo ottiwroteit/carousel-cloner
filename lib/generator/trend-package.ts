@@ -150,6 +150,30 @@ const STORE_HOOKS: HookFamily[] = [
   }
 ];
 
+const GENERIC_GROCERY_HOOKS: HookFamily[] = [
+  {
+    title: "weekly-grabs",
+    hookText: () => "What I would grab this week",
+    captionAngle: "a weekly grocery run shortlist",
+    preferredScenes: ["Storefront", "Cart down aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "cleaner-finds",
+    hookText: () => "Cleaner grocery finds worth checking",
+    captionAngle: "cleaner grocery finds worth checking before the next trip",
+    preferredScenes: ["Storefront", "Random grocery aisle", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "better-swaps",
+    hookText: () => "Better grocery swaps this week",
+    captionAngle: "better grocery swaps for the next grocery run",
+    preferredScenes: ["Storefront", "Cart down aisle", "Seasonal display"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  }
+];
+
 const BENEFIT_HOOKS: HookFamily[] = [
   {
     title: "no-dyes",
@@ -418,11 +442,15 @@ export function buildTrendPackage({
   forceStorefrontHero = false,
   storeName: forcedStoreName
 }: BuildTrendPackageOptions = {}): GeneratedPackage {
-  const selected = forceStorefrontHero ? { hook: pick(STORE_HOOKS, random), occasion: undefined } : selectHook(now, random);
+  const useGenericStorefrontCopy = forceStorefrontHero && Boolean(forcedStoreName);
+  const selected = forceStorefrontHero
+    ? { hook: pick(useGenericStorefrontCopy ? GENERIC_GROCERY_HOOKS : STORE_HOOKS, random), occasion: undefined }
+    : selectHook(now, random);
   const { hook, occasion } = selected;
   const scene = forceStorefrontHero ? storefrontScene() : pickHeroScene(hook, random);
   const storeName = forcedStoreName ?? (scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined);
-  const hookText = hook.hookText(storeName, occasion);
+  const copyStoreName = useGenericStorefrontCopy ? undefined : storeName;
+  const hookText = hook.hookText(copyStoreName, occasion);
   const products = bareProducts?.slice(0, 3).map(productFromBare) ?? [];
   const carouselSlides: CarouselSlidePlan[] = [
     {
@@ -439,14 +467,14 @@ export function buildTrendPackage({
       position: carouselSlides.length + 1,
       kind: "product-photo",
       title: product.shortName,
-      storeName,
+      storeName: copyStoreName,
       productName: productDisplayName(product),
       barcode: product.barcode,
       bareImageUrl: product.imageUrl,
       bareScore: product.score,
       bareLabel: product.label,
       bareSummary: product.summary,
-      prompt: productPrompt(product, storeName)
+      prompt: productPrompt(product, copyStoreName)
     });
     carouselSlides.push({
       position: carouselSlides.length + 1,
@@ -462,14 +490,14 @@ export function buildTrendPackage({
   }
 
   const imagePrompts = carouselSlides.flatMap((slide) => (slide.prompt ? [slide.prompt] : []));
-  const storePhrase = storeName ? ` at ${storeName}` : "";
+  const storePhrase = copyStoreName ? ` at ${copyStoreName}` : "";
 
   return {
     title: hookText,
     mainCaption: `${sentenceCase(hook.captionAngle)}${storePhrase}. Save this so you can compare labels before your next grocery run.`,
     alternateHooks: [
       hookText,
-      storeName ? `What I found at ${storeName}` : "What I found in the grocery aisle",
+      copyStoreName ? `What I found at ${copyStoreName}` : "What I found in the grocery aisle",
       occasion ? `${occasion} grocery finds worth checking` : "Cleaner grocery finds worth checking"
     ],
     hashtags: ["#groceryfinds", "#cleaningredients", "#healthysnacks", "#betteringredients"],

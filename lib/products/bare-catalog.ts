@@ -38,6 +38,13 @@ const REJECTED_ROTATION_TERMS = [
   /\bliquid\s+death\b/i,
   /\bsnapple\b/i
 ];
+const MALFORMED_PRODUCT_NAME_TERMS = [
+  /\bunidades\b/i,
+  /\bundefined\b/i,
+  /\bnull\b/i,
+  /\([^)]{0,2}\)/,
+  /[a-z]\(/i
+];
 
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
@@ -97,6 +104,10 @@ function isMarketable(row: Record<string, string>): boolean {
   }
 
   if (brand.toLowerCase() === "unknown") {
+    return false;
+  }
+
+  if (MALFORMED_PRODUCT_NAME_TERMS.some((term) => term.test(name))) {
     return false;
   }
 
