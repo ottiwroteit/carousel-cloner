@@ -192,6 +192,14 @@ export function selectBareProducts(
   random: () => number = Math.random,
   options: SelectBareProductsOptions = {}
 ): BareProduct[] {
+  const qualityFloor = products.filter(
+    (product) =>
+      product.imageUrl &&
+      typeof product.score === "number" &&
+      product.score >= 80 &&
+      /excellent/i.test(product.label) &&
+      matchesSelectedStore(product, options.storeName)
+  );
   const preferred = products.filter(
     (product) =>
       product.imageUrl &&
@@ -201,7 +209,7 @@ export function selectBareProducts(
       matchesSelectedStore(product, options.storeName)
   );
   const fallback = products.filter((product) => product.imageUrl && matchesSelectedStore(product, options.storeName));
-  const eligible = preferred.length >= count ? preferred : fallback;
+  const eligible = preferred.length >= count ? preferred : qualityFloor.length >= count ? qualityFloor : fallback;
   const remaining = [...eligible];
   const selected: BareProduct[] = [];
 

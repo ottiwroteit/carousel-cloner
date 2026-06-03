@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const DEFAULT_HTTP_TIMEOUT_MS = 90_000;
 
 type CurlFetchInit = RequestInit & {
   url: string;
@@ -72,6 +73,7 @@ async function runCurl(args: string[]): Promise<Response> {
 
   try {
     await execFileAsync("curl", ["-sS", "-L", "-D", headersPath, "-o", bodyPath, ...args], {
+      timeout: DEFAULT_HTTP_TIMEOUT_MS,
       maxBuffer: 1024 * 1024 * 20
     });
     const [headersText, body] = await Promise.all([readFile(headersPath, "utf8"), readFile(bodyPath)]);
@@ -112,9 +114,15 @@ async function curlFetch({ url, method, headers, body }: CurlFetchInit): Promise
 
 export async function fetchWithCurlFallback(input: string | URL, init?: RequestInit): Promise<Response> {
   const url = normalizeUrl(input);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_HTTP_TIMEOUT_MS);
+  const mergedInit = {
+    ...init,
+    signal: init?.signal ?? controller.signal
+  };
 
   try {
-    return await fetch(url, init);
+    return await fetch(url, mergedInit);
   } catch (error) {
     if (!shouldUseCurlFallback(error)) {
       throw error;
@@ -124,6 +132,8 @@ export async function fetchWithCurlFallback(input: string | URL, init?: RequestI
       url,
       ...init
     });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

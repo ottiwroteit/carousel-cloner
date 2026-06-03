@@ -33,6 +33,7 @@ type AxeNode = {
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_SIMULATOR_ID = "booted";
+const SIMULATOR_COMMAND_TIMEOUT_MS = 25_000;
 const AXE_CANDIDATES = [
   process.env.AXE_PATH,
   "/Users/otti/.npm/_npx/99336612077b7094/node_modules/xcodebuildmcp/bundled/axe",
@@ -41,6 +42,7 @@ const AXE_CANDIDATES = [
 
 async function run(command: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync(command, args, {
+    timeout: SIMULATOR_COMMAND_TIMEOUT_MS,
     maxBuffer: 1024 * 1024 * 10
   });
   return stdout;
@@ -472,7 +474,7 @@ async function driveBarcodeProductOpen(axePath: string, udid: string, simulatorI
   await axeTap(axePath, udid, 170, 724, 0.35, "simulator");
   await clearFocusedField().catch(() => undefined);
   await axeType(axePath, udid, barcodeForManualEntry(barcode));
-  await axeTap(axePath, udid, 363, 724, 3, "simulator");
+  await axeTapLabel(axePath, udid, "Submit", 3).catch(() => axeTap(axePath, udid, 344, 816, 3, "simulator"));
 }
 
 export async function captureBareProductScreenshot({
@@ -510,23 +512,28 @@ export async function captureBareProductScreenshot({
     return false;
   };
 
+  const historyFirst = process.env.BARE_SCREENSHOT_HISTORY_FIRST === "1";
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
-      if (await captureAndValidate(true)) {
-        return relativePath;
-      }
-    } catch {
-      // Fall through to barcode search below.
-    }
-
     try {
       await driveBarcodeProductOpen(axePath, udid, simulatorId, barcode);
       if (await captureAndValidate(false)) {
         return relativePath;
       }
     } catch {
-      // Retry the full history -> barcode sequence.
+      // Fall through to the optional History fallback below.
+    }
+
+    if (!historyFirst) {
+      continue;
+    }
+
+    try {
+      await driveHistoryProductOpen(axePath, udid, simulatorId, productName);
+      if (await captureAndValidate(true)) {
+        return relativePath;
+      }
+    } catch {
+      // Retry the barcode -> optional History sequence.
     }
   }
 

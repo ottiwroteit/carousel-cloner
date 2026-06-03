@@ -13,6 +13,8 @@ import {
   type PostizIntegration,
   type PostizPostSummary
 } from "../lib/postiz/client";
+import { readBareCatalog } from "../lib/products/bare-catalog";
+import { filterProductsWithUsableImages } from "../lib/products/product-image-quality";
 import type { GeneratedPackage, StyleProfile } from "../lib/types";
 
 type PlatformDraft = {
@@ -35,6 +37,42 @@ const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
 const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
 const MIN_POST_GAP_MS = 3 * 60 * 60 * 1000;
+const SCREENSHOT_READY_PRODUCT_TERMS = [
+  "seasoned romano panko",
+  "whole wheat bread",
+  "old fashioned oats",
+  "whole grain brown rice",
+  "organic rolled oats",
+  "spaghetti",
+  "triscuit",
+  "plain greek yogurt",
+  "total 0% greek yogurt",
+  "organic whole milk yogurt",
+  "ultra-filtered whole milk",
+  "pure irish butter",
+  "unsalted butter",
+  "tillamook medium cheddar cheese",
+  "organic peanut butter",
+  "wild blueberry fruit spread",
+  "chocolate sea salt bar",
+  "dark choc nuts",
+  "apple pie bar",
+  "grain free tortilla chips",
+  "planters dry roasted almonds",
+  "avocado oil mayo",
+  "classic ketchup",
+  "original hot sauce",
+  "organic apple cider vinegar",
+  "lemon sparkling water",
+  "sparkling water lemon",
+  "organic eggs",
+  "go lean original cereal",
+  "macaroni & cheese",
+  "steamfresh broccoli",
+  "frozen sweet corn",
+  "organic spinach",
+  "matcha green tea latte"
+];
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -333,6 +371,20 @@ function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outpu
   return [...barcodes];
 }
 
+async function readImageVerifiedCatalog(): Promise<Awaited<ReturnType<typeof readBareCatalog>>> {
+  const products = await readBareCatalog({ preferWithImages: false });
+  const positiveProducts = products.filter((product) => {
+    const text = `${product.brand} ${product.productName}`.toLowerCase();
+    return (
+      typeof product.score === "number" &&
+      product.score >= 55 &&
+      !/^avoid$/i.test(product.label) &&
+      SCREENSHOT_READY_PRODUCT_TERMS.some((term) => text.includes(term))
+    );
+  });
+  return filterProductsWithUsableImages(positiveProducts);
+}
+
 async function buildOneDraft(
   slotDate: Date,
   integrations: PostizIntegration[],
@@ -345,6 +397,7 @@ async function buildOneDraft(
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= 6; attempt += 1) {
+    console.log(`Building draft ${index + 1} for ${slotDate.toISOString()} (${storeName}), attempt ${attempt}.`);
     const job = await createJob({
       url: "https://www.tiktok.com/@downloadbare",
       profile: defaultProfile
@@ -358,11 +411,18 @@ async function buildOneDraft(
         useStockHeroImages: true,
         useBareSimulatorScreenshots: true,
         requireBareSimulatorScreenshots: true,
-        excludeProductBarcodes: [...excludeProductBarcodes, ...retryRejectedBarcodes]
+        excludeProductBarcodes: [...excludeProductBarcodes, ...retryRejectedBarcodes],
+        readBareCatalog: readImageVerifiedCatalog
       });
       const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
       const images = (pkg.generatedImages ?? []).map((relativePath) => path.join(snapshot.dir, relativePath));
       const caption = captionForPackage(pkg);
+      const productNames = (pkg.carouselSlides ?? [])
+        .filter((slide) => slide.kind === "product-photo")
+        .map((slide) => slide.productName)
+        .filter(Boolean)
+        .join(", ");
+      console.log(`Draft ${index + 1} generated job ${job.status.id}: ${productNames}.`);
 
       if (images.length === 0) {
         throw new Error(`Job ${job.status.id} did not generate uploadable images.`);
@@ -393,6 +453,7 @@ async function buildOneDraft(
       for (const image of images) {
         uploaded.push(await uploadPostizImage(baseUrl, apiKey, image));
       }
+      console.log(`Draft ${index + 1} uploaded ${uploaded.length} images to Postiz.`);
 
       const platforms: PlatformDraft[] = [];
       for (const integration of integrations) {
@@ -413,6 +474,7 @@ async function buildOneDraft(
           response
         });
       }
+      console.log(`Draft ${index + 1} scheduled for ${slotDate.toISOString()} on ${platforms.length} integrations.`);
 
       return {
         jobId: job.status.id,
@@ -454,6 +516,7 @@ async function main(): Promise<void> {
   const usedProductBarcodes = new Set<string>(collectHistoricalProductBarcodes());
   const targetIntegrations: PostizIntegration[] = [];
   const reservedDates: Date[] = [];
+  process.env.BARE_SCREENSHOT_HISTORY_FIRST ??= "1";
 
   if (!apiKey) {
     throw new Error("POSTIZ_API_KEY is missing from .env.local.");

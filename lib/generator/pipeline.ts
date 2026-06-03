@@ -43,29 +43,65 @@ type ImageGenerationArtifact =
   | { provider: "local-real-products"; reason: string; productSources: WebProductImage[] }
   | { provider: "local-svg"; reason: string };
 
+const GENERIC_GROCERY_HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1400&q=85",
+  "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1400&q=85",
+  "https://images.unsplash.com/photo-1601599561213-832382fd07ba?auto=format&fit=crop&w=1400&q=85",
+  "https://images.unsplash.com/photo-1586907835000-f692bbd4c9e0?auto=format&fit=crop&w=1400&q=85"
+];
+
 const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
-  "target": ["https://upload.wikimedia.org/wikipedia/commons/4/48/Target_exterior_in_Northern_Virginia_-_November_2019.jpg"],
-  "walmart": ["https://upload.wikimedia.org/wikipedia/commons/0/04/Walmart_exterior.jpg"],
-  "whole foods": ["https://upload.wikimedia.org/wikipedia/commons/b/bf/WholeFoodsHeadquarters-2008-a.JPG"],
-  "trader joe's": ["https://upload.wikimedia.org/wikipedia/commons/8/8f/Trader_Joe%27s_Grocery_Store_Ann_Arbor_Michigan.JPG"],
-  "sprouts": ["https://upload.wikimedia.org/wikipedia/commons/1/14/Sprouts_Farmers_Market%2C_West_Melbourne%2C_Florida.jpg"],
-  "kroger": ["https://upload.wikimedia.org/wikipedia/commons/9/99/The_exterior_of_a_Kroger_Marketplace_store_in_Athens%2C_Georgia_01.jpg"],
-  "publix": ["https://upload.wikimedia.org/wikipedia/commons/e/e7/A_typical_Publix_grocery_store_exterior_seen_in_Farragut%2C_Tennessee_03.jpg"],
-  "h-e-b": ["https://upload.wikimedia.org/wikipedia/commons/0/0a/H-E-B_Grocery_Store_and_Parked_Cars%2C_Texas_%2847550080862%29.jpg"]
+  target: [
+    "https://upload.wikimedia.org/wikipedia/commons/4/48/Target_exterior_in_Northern_Virginia_-_November_2019.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  walmart: [
+    "https://upload.wikimedia.org/wikipedia/commons/0/04/Walmart_exterior.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  "whole foods": [
+    "https://upload.wikimedia.org/wikipedia/commons/b/bf/WholeFoodsHeadquarters-2008-a.JPG",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  sprouts: [
+    "https://upload.wikimedia.org/wikipedia/commons/1/14/Sprouts_Farmers_Market%2C_West_Melbourne%2C_Florida.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  kroger: [
+    "https://upload.wikimedia.org/wikipedia/commons/9/99/The_exterior_of_a_Kroger_Marketplace_store_in_Athens%2C_Georgia_01.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  publix: [
+    "https://upload.wikimedia.org/wikipedia/commons/e/e7/A_typical_Publix_grocery_store_exterior_seen_in_Farragut%2C_Tennessee_03.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ],
+  "h-e-b": [
+    "https://upload.wikimedia.org/wikipedia/commons/0/0a/H-E-B_Grocery_Store_and_Parked_Cars%2C_Texas_%2847550080862%29.jpg",
+    ...GENERIC_GROCERY_HERO_IMAGES
+  ]
 };
 
-const FALLBACK_REAL_STORE_HERO_IMAGES = Object.values(REAL_STORE_HERO_IMAGES).flat();
+const FALLBACK_REAL_STORE_HERO_IMAGES = [...GENERIC_GROCERY_HERO_IMAGES, ...Object.values(REAL_STORE_HERO_IMAGES).flat()];
 
 function normalizeStoreKey(storeName?: string): string | undefined {
   return storeName?.toLowerCase().replaceAll("’", "'").trim();
 }
 
-async function downloadStockHeroImage(jobDir: string, index: number, storeName?: string): Promise<string> {
+function stableHeroIndex(seed: string, poolLength: number): number {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return poolLength ? hash % poolLength : 0;
+}
+
+async function downloadStockHeroImage(jobDir: string, index: number, storeName?: string, title?: string): Promise<string> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
   const storeImages = REAL_STORE_HERO_IMAGES[normalizeStoreKey(storeName) ?? ""];
   const imagePool = storeImages?.length ? storeImages : FALLBACK_REAL_STORE_HERO_IMAGES;
-  const sourceUrl = imagePool[index % imagePool.length];
+  const seed = `${path.basename(jobDir)}:${storeName ?? "generic"}:${title ?? ""}:${index}`;
+  const sourceUrl = imagePool[stableHeroIndex(seed, imagePool.length)];
   const response = await fetchWithCurlFallback(sourceUrl);
   if (!response.ok) {
     throw new Error(`Stock hero image failed with HTTP ${response.status}.`);
@@ -128,7 +164,7 @@ async function generateLocalImagesWithRealProducts(
       if (!useStockHeroImages) {
         throw new Error("Stock hero images disabled.");
       }
-      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName);
+      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName, slide.title);
       generatedImages.push(
         await composeHeroImage({
           jobDir: snapshot.dir,
