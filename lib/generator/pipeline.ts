@@ -231,7 +231,12 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   const availableProducts = await catalogReader({ preferWithImages: false });
   const excluded = new Set(options.excludeProductBarcodes ?? []);
   const eligibleProducts = availableProducts.filter((product) => !excluded.has(product.barcode));
-  const catalogProducts = selectBareProducts(eligibleProducts.length >= 3 ? eligibleProducts : availableProducts, 3, Math.random, {
+  if (eligibleProducts.length < 3) {
+    throw new Error(
+      `BARE catalog only has ${eligibleProducts.length} eligible product(s) after exclusions; refusing to reuse previously selected products.`
+    );
+  }
+  const catalogProducts = selectBareProducts(eligibleProducts, 3, Math.random, {
     storeName: options.storeName
   });
   if (catalogProducts.length === 0) {

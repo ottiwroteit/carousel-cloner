@@ -212,7 +212,7 @@ describe("processJob", () => {
           }
         })
       })
-    ).rejects.toThrow("BARE catalog did not return any marketable products with images.");
+    ).rejects.toThrow("BARE catalog only has 0 eligible product(s) after exclusions; refusing to reuse previously selected products.");
   });
 
   test("uses BARE catalog products when available", async () => {

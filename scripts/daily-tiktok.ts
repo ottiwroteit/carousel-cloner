@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { formatCaptionPackage } from "../lib/export/captions";
@@ -37,6 +37,7 @@ const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
 const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
 const MIN_POST_GAP_MS = 3 * 60 * 60 * 1000;
+const PRODUCT_USAGE_LEDGER = path.join(process.cwd(), "outputs", "postiz-product-usage.jsonl");
 const SCREENSHOT_READY_PRODUCT_TERMS = [
   "seasoned romano panko",
   "whole wheat bread",
@@ -273,6 +274,21 @@ function assertAllowedProducts(pkg: GeneratedPackage): void {
   }
 }
 
+function assertNoExcludedProducts(pkg: GeneratedPackage, excludedBarcodes: string[]): void {
+  const excluded = new Set(excludedBarcodes);
+  const blocked = (pkg.carouselSlides ?? []).filter(
+    (slide) => slide.kind === "product-photo" && slide.barcode && excluded.has(slide.barcode)
+  );
+
+  if (blocked.length > 0) {
+    throw new Error(
+      `Upload blocked: previously used product selected (${blocked
+        .map((slide) => `${slide.productName ?? "unknown"}:${slide.barcode}`)
+        .join(", ")}).`
+    );
+  }
+}
+
 function parseIsoDate(value: string | undefined): Date | null {
   if (!value) {
     return null;
@@ -347,12 +363,42 @@ function readPackageProductBarcodes(packagePath: string): string[] {
   }
 }
 
-function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outputs", "jobs")): string[] {
-  if (!existsSync(root)) {
+function readLedgerProductBarcodes(ledgerPath = PRODUCT_USAGE_LEDGER): string[] {
+  if (!existsSync(ledgerPath)) {
     return [];
   }
 
   const barcodes = new Set<string>();
+  for (const line of readFileSync(ledgerPath, "utf8").split(/\r?\n/)) {
+    if (!line.trim()) {
+      continue;
+    }
+    try {
+      const record = JSON.parse(line) as { products?: Array<{ barcode?: string }> };
+      for (const product of record.products ?? []) {
+        if (product.barcode) {
+          barcodes.add(product.barcode);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [...barcodes];
+}
+
+function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outputs", "jobs")): string[] {
+  const ledgerBarcodes = readLedgerProductBarcodes();
+  if (process.env.POSTIZ_EXCLUDE_ALL_LOCAL_PACKAGES !== "1") {
+    return ledgerBarcodes;
+  }
+
+  if (!existsSync(root)) {
+    return ledgerBarcodes;
+  }
+
+  const barcodes = new Set<string>(ledgerBarcodes);
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) {
       continue;
@@ -369,6 +415,36 @@ function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outpu
   }
 
   return [...barcodes];
+}
+
+function recordScheduledProductUsage(result: DraftResult, pkg: GeneratedPackage): void {
+  const products = (pkg.carouselSlides ?? [])
+    .filter((slide) => slide.kind === "product-photo" && slide.barcode)
+    .map((slide) => ({
+      barcode: slide.barcode,
+      productName: slide.productName,
+      brand: slide.bareBrand
+    }));
+
+  if (products.length === 0) {
+    return;
+  }
+
+  mkdirSync(path.dirname(PRODUCT_USAGE_LEDGER), { recursive: true });
+  appendFileSync(
+    PRODUCT_USAGE_LEDGER,
+    `${JSON.stringify({
+      createdAt: new Date().toISOString(),
+      jobId: result.jobId,
+      date: result.date,
+      platforms: result.platforms.map((platform) => ({
+        integrationId: platform.integrationId,
+        platform: platform.platform,
+        postId: platform.postId
+      })),
+      products
+    })}\n`
+  );
 }
 
 async function readImageVerifiedCatalog(): Promise<Awaited<ReturnType<typeof readBareCatalog>>> {
@@ -404,6 +480,7 @@ async function buildOneDraft(
     });
 
     try {
+      const excludedBarcodes = [...excludeProductBarcodes, ...retryRejectedBarcodes];
       const snapshot = await processJob(job.status.id, {
         useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
         forceStorefrontHero: true,
@@ -411,7 +488,7 @@ async function buildOneDraft(
         useStockHeroImages: true,
         useBareSimulatorScreenshots: true,
         requireBareSimulatorScreenshots: true,
-        excludeProductBarcodes: [...excludeProductBarcodes, ...retryRejectedBarcodes],
+        excludeProductBarcodes: excludedBarcodes,
         readBareCatalog: readImageVerifiedCatalog
       });
       const pkg = await finalizePackage(job.status.id, snapshot.dir, snapshot.artifacts["package.json"] as GeneratedPackage);
@@ -429,6 +506,7 @@ async function buildOneDraft(
       }
       await assertCarouselReadyForUpload(pkg, images);
       assertAllowedProducts(pkg);
+      assertNoExcludedProducts(pkg, excludedBarcodes);
 
       if (dryRun) {
         return {
@@ -476,13 +554,15 @@ async function buildOneDraft(
       }
       console.log(`Draft ${index + 1} scheduled for ${slotDate.toISOString()} on ${platforms.length} integrations.`);
 
-      return {
+      const result = {
         jobId: job.status.id,
         jobDir: snapshot.dir,
         date: slotDate.toISOString(),
         imageCount: uploaded.length,
         platforms
       };
+      recordScheduledProductUsage(result, pkg);
+      return result;
     } catch (error) {
       lastError = error;
       const selectionPath = path.join(job.dir, "bare-product-selection.json");
