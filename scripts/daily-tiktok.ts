@@ -37,7 +37,7 @@ const DEFAULT_TIKTOK_PROFILE = "downloadbare";
 const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
 const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
 const MIN_POST_GAP_MS = 3 * 60 * 60 * 1000;
-const PRODUCT_USAGE_LEDGER = path.join(process.cwd(), "outputs", "postiz-product-usage.jsonl");
+const PRODUCT_USAGE_LEDGER = process.env.POSTIZ_USAGE_LEDGER ?? path.join(process.cwd(), "outputs", "postiz-product-usage.jsonl");
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -535,6 +535,7 @@ async function buildOneDraft(
         useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
         forceStorefrontHero: !forceAisleHero,
         forceAisleHero,
+        heroImageOffset: index,
         storeName,
         useStockHeroImages: true,
         useBareSimulatorScreenshots: true,

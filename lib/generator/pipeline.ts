@@ -28,6 +28,7 @@ type ProcessJobOptions = {
   useOpenAIImages?: boolean;
   forceStorefrontHero?: boolean;
   forceAisleHero?: boolean;
+  heroImageOffset?: number;
   storeName?: string;
   useStockHeroImages?: boolean;
   useBareSimulatorScreenshots?: boolean;
@@ -52,11 +53,59 @@ const GENERIC_GROCERY_HERO_IMAGES = [
 ];
 
 const AISLE_GROCERY_HERO_IMAGES = [
-  "https://images.unsplash.com/photo-1601599561213-832382fd07ba?auto=format&fit=crop&w=1400&q=88",
-  "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1400&q=88",
-  "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?auto=format&fit=crop&w=1400&q=88",
-  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1400&q=88",
-  "https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1400&q=88"
+  "https://images.pexels.com/photos/4124939/pexels-photo-4124939.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/uDxLgwQW3F4/download?force=true&w=1600",
+  "https://images.pexels.com/photos/15491800/pexels-photo-15491800.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/qHo-9VvFk2g/download?force=true&w=1600",
+  "https://images.pexels.com/photos/30684941/pexels-photo-30684941.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/OPf9QWMU54c/download?force=true&w=1600",
+  "https://images.pexels.com/photos/27175531/pexels-photo-27175531.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/kdJ55EKA8zk/download?force=true&w=1600",
+  "https://unsplash.com/photos/2vgVRWpwKYE/download?force=true&w=1600",
+  "https://images.pexels.com/photos/35358947/pexels-photo-35358947.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/ivfp_yxZuYQ/download?force=true&w=1600",
+  "https://images.pexels.com/photos/35358811/pexels-photo-35358811.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/421nTYTZLSI/download?force=true&w=1600",
+  "https://images.pexels.com/photos/33101226/pexels-photo-33101226.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/fKdUakd75kU/download?force=true&w=1600",
+  "https://images.pexels.com/photos/4971954/pexels-photo-4971954.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/6aBRyZGtdeY/download?force=true&w=1600",
+  "https://images.pexels.com/photos/29180123/pexels-photo-29180123.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/2Vl1JZFmtOw/download?force=true&w=1600",
+  "https://images.pexels.com/photos/26184235/pexels-photo-26184235.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/CZtK_E89omo/download?force=true&w=1600",
+  "https://images.pexels.com/photos/32550092/pexels-photo-32550092.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/realLSEyjEk/download?force=true&w=1600",
+  "https://images.pexels.com/photos/35358949/pexels-photo-35358949.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/e4EmPx91Aj4/download?force=true&w=1600",
+  "https://images.pexels.com/photos/26956442/pexels-photo-26956442.jpeg?auto=compress&cs=tinysrgb&w=1600",
+  "https://unsplash.com/photos/oNTuC-2j5WQ/download?force=true&w=1600",
+  "https://unsplash.com/photos/t22WqcvMvNU/download?force=true&w=1600",
+  "https://unsplash.com/photos/dtyLPa6qtlc/download?force=true&w=1600",
+  "https://unsplash.com/photos/jng9usOa_J0/download?force=true&w=1600",
+  "https://unsplash.com/photos/LDuAErowZ1o/download?force=true&w=1600",
+  "https://unsplash.com/photos/WTOWyep_ErY/download?force=true&w=1600",
+  "https://unsplash.com/photos/3v5yG5u8L0Y/download?force=true&w=1600",
+  "https://unsplash.com/photos/yKn3cfE_XXU/download?force=true&w=1600",
+  "https://unsplash.com/photos/pwcLYVaQ-Zc/download?force=true&w=1600",
+  "https://unsplash.com/photos/Pv7YuLmyB90/download?force=true&w=1600",
+  "https://unsplash.com/photos/QsYXYSwV3NU/download?force=true&w=1600",
+  "https://unsplash.com/photos/ktdmaxlkKtI/download?force=true&w=1600",
+  "https://unsplash.com/photos/ueZXMrZFFKQ/download?force=true&w=1600",
+  "https://unsplash.com/photos/pEu_jnyi2c4/download?force=true&w=1600",
+  "https://unsplash.com/photos/VLjIWo_Kmao/download?force=true&w=1600",
+  "https://unsplash.com/photos/p82_qSyyFrU/download?force=true&w=1600",
+  "https://unsplash.com/photos/p-wArY8zQUA/download?force=true&w=1600",
+  "https://unsplash.com/photos/nWfuGfFir0U/download?force=true&w=1600",
+  "https://unsplash.com/photos/9ooxFTsswQ8/download?force=true&w=1600",
+  "https://unsplash.com/photos/gFJRgtzPNVc/download?force=true&w=1600",
+  "https://unsplash.com/photos/JLjnVwVPZMo/download?force=true&w=1600",
+  "https://unsplash.com/photos/sq5P00L7lXc/download?force=true&w=1600",
+  "https://unsplash.com/photos/IC4k78J91lY/download?force=true&w=1600",
+  "https://unsplash.com/photos/pDwIGDpWmnE/download?force=true&w=1600",
+  "https://unsplash.com/photos/eFVToUaCFCA/download?force=true&w=1600",
+  "https://upload.wikimedia.org/wikipedia/commons/1/14/Sprouts_Farmers_Market%2C_West_Melbourne%2C_Florida.jpg",
+  "https://upload.wikimedia.org/wikipedia/commons/0/04/Walmart_exterior.jpg"
 ];
 
 const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
@@ -109,14 +158,15 @@ async function downloadStockHeroImage(
   index: number,
   storeName?: string,
   title?: string,
-  forceAisleHero = false
+  forceAisleHero = false,
+  heroImageOffset = 0
 ): Promise<string> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
   const storeImages = REAL_STORE_HERO_IMAGES[normalizeStoreKey(storeName) ?? ""];
   const imagePool = forceAisleHero ? AISLE_GROCERY_HERO_IMAGES : storeImages?.length ? storeImages : FALLBACK_REAL_STORE_HERO_IMAGES;
   const seed = `${path.basename(jobDir)}:${forceAisleHero ? "aisle" : storeName ?? "generic"}:${title ?? ""}:${index}`;
-  const sourceUrl = imagePool[stableHeroIndex(seed, imagePool.length)];
+  const sourceUrl = imagePool[(stableHeroIndex(seed, imagePool.length) + heroImageOffset) % imagePool.length];
   const response = await fetchWithCurlFallback(sourceUrl);
   if (!response.ok) {
     throw new Error(`Stock hero image failed with HTTP ${response.status}.`);
@@ -143,7 +193,8 @@ async function generateLocalImagesWithRealProducts(
   pkg: ReturnType<typeof buildTrendPackage>,
   findProductImage: typeof findWebProductImage,
   useStockHeroImages = false,
-  forceAisleHero = false
+  forceAisleHero = false,
+  heroImageOffset = 0
 ): Promise<{ generatedImages: string[]; productSources: WebProductImage[] }> {
   const generatedDir = path.join(snapshot.dir, "generated");
   await mkdir(generatedDir, { recursive: true });
@@ -180,7 +231,14 @@ async function generateLocalImagesWithRealProducts(
       if (!useStockHeroImages) {
         throw new Error("Stock hero images disabled.");
       }
-      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName, slide.title, forceAisleHero);
+      const heroSource = await downloadStockHeroImage(
+        snapshot.dir,
+        slideNumber,
+        slide.storeName,
+        slide.title,
+        forceAisleHero,
+        heroImageOffset + index
+      );
       generatedImages.push(
         await composeHeroImage({
           jobDir: snapshot.dir,
@@ -367,7 +425,8 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
           generated,
           webProductImageFinder,
           options.useStockHeroImages,
-          options.forceAisleHero
+          options.forceAisleHero,
+          options.heroImageOffset
         );
         generated = attachGeneratedImagesToSlides(generated, generatedImages);
         await writeJobArtifact(
