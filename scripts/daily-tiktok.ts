@@ -38,42 +38,6 @@ const DEFAULT_SLOTS = ["12:30", "15:00", "18:00"];
 const STOREFRONT_STORES = ["Target", "Whole Foods", "Walmart", "Sprouts", "Kroger", "Publix", "H-E-B"];
 const MIN_POST_GAP_MS = 3 * 60 * 60 * 1000;
 const PRODUCT_USAGE_LEDGER = path.join(process.cwd(), "outputs", "postiz-product-usage.jsonl");
-const SCREENSHOT_READY_PRODUCT_TERMS = [
-  "seasoned romano panko",
-  "whole wheat bread",
-  "old fashioned oats",
-  "whole grain brown rice",
-  "organic rolled oats",
-  "spaghetti",
-  "triscuit",
-  "plain greek yogurt",
-  "total 0% greek yogurt",
-  "organic whole milk yogurt",
-  "ultra-filtered whole milk",
-  "pure irish butter",
-  "unsalted butter",
-  "tillamook medium cheddar cheese",
-  "organic peanut butter",
-  "wild blueberry fruit spread",
-  "chocolate sea salt bar",
-  "dark choc nuts",
-  "apple pie bar",
-  "grain free tortilla chips",
-  "planters dry roasted almonds",
-  "avocado oil mayo",
-  "classic ketchup",
-  "original hot sauce",
-  "organic apple cider vinegar",
-  "lemon sparkling water",
-  "sparkling water lemon",
-  "organic eggs",
-  "go lean original cereal",
-  "macaroni & cheese",
-  "steamfresh broccoli",
-  "frozen sweet corn",
-  "organic spinach",
-  "matcha green tea latte"
-];
 
 const defaultProfile: StyleProfile = {
   accountName: "Carousel Cloner",
@@ -206,7 +170,7 @@ async function assertCarouselReadyForUpload(pkg: GeneratedPackage, imagePaths: s
 
 function assertAllowedProducts(pkg: GeneratedPackage): void {
   const bannedTerms = [/\bozarka\b/i, /\bolive\s+oil\b/i, /\bliquid\s+death\b/i, /\bsnapple\b/i];
-  const malformedTerms = [/^(meal|food|sauce|beverage|drink|snack|candy|cheese|water|chips|salt|sugar|oil)$/i];
+  const malformedTerms = [/📦/, /^(meal|food|sauce|beverage|drink|snack|candy|cheese|water|chips|salt|sugar|oil)$/i];
   const unsafeTerms = [
     /\braw\b/i,
     /\bchicken\b/i,
@@ -248,11 +212,13 @@ function assertAllowedProducts(pkg: GeneratedPackage): void {
     if (!slide.productName || slide.kind !== "product-photo") {
       continue;
     }
-    const key = `${slide.barcode ?? ""}:${slide.productName.toLowerCase()}`;
+    const key = productNameKey(slide.productName);
     if (seen.has(key)) {
       throw new Error(`Upload blocked: repeated product detected in package (${slide.productName}).`);
     }
-    seen.add(key);
+    if (key) {
+      seen.add(key);
+    }
 
     const text = `${slide.productName} ${slide.bareSummary ?? ""}`;
     const productWords = slide.productName
@@ -286,6 +252,30 @@ function assertNoExcludedProducts(pkg: GeneratedPackage, excludedBarcodes: strin
         .map((slide) => `${slide.productName ?? "unknown"}:${slide.barcode}`)
         .join(", ")}).`
     );
+  }
+}
+
+function productNameKey(value: string | undefined): string {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(organic|natural|classic|original|signature)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function assertNoExcludedProductNames(pkg: GeneratedPackage, excludedNameKeys: string[]): void {
+  const excluded = new Set(excludedNameKeys);
+  const blocked = (pkg.carouselSlides ?? []).filter((slide) => {
+    if (slide.kind !== "product-photo") {
+      return false;
+    }
+    const key = productNameKey(slide.productName);
+    return key ? excluded.has(key) : false;
+  });
+
+  if (blocked.length > 0) {
+    throw new Error(`Upload blocked: previously used product name selected (${blocked.map((slide) => slide.productName).join(", ")}).`);
   }
 }
 
@@ -388,6 +378,32 @@ function readLedgerProductBarcodes(ledgerPath = PRODUCT_USAGE_LEDGER): string[] 
   return [...barcodes];
 }
 
+function readLedgerProductNameKeys(ledgerPath = PRODUCT_USAGE_LEDGER): string[] {
+  if (!existsSync(ledgerPath)) {
+    return [];
+  }
+
+  const names = new Set<string>();
+  for (const line of readFileSync(ledgerPath, "utf8").split(/\r?\n/)) {
+    if (!line.trim()) {
+      continue;
+    }
+    try {
+      const record = JSON.parse(line) as { products?: Array<{ productName?: string }> };
+      for (const product of record.products ?? []) {
+        const key = productNameKey(product.productName);
+        if (key) {
+          names.add(key);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [...names];
+}
+
 function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outputs", "jobs")): string[] {
   const ledgerBarcodes = readLedgerProductBarcodes();
   if (process.env.POSTIZ_EXCLUDE_ALL_LOCAL_PACKAGES !== "1") {
@@ -415,6 +431,46 @@ function collectHistoricalProductBarcodes(root = path.join(process.cwd(), "outpu
   }
 
   return [...barcodes];
+}
+
+function collectHistoricalProductNameKeys(root = path.join(process.cwd(), "outputs", "jobs")): string[] {
+  const ledgerNames = readLedgerProductNameKeys();
+  if (process.env.POSTIZ_EXCLUDE_ALL_LOCAL_PACKAGES !== "1") {
+    return ledgerNames;
+  }
+
+  if (!existsSync(root)) {
+    return ledgerNames;
+  }
+
+  const names = new Set<string>(ledgerNames);
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const packagePath = path.join(root, entry.name, "package.json");
+    if (!existsSync(packagePath)) {
+      continue;
+    }
+
+    try {
+      const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as GeneratedPackage;
+      for (const slide of pkg.carouselSlides ?? []) {
+        if (slide.kind !== "product-photo") {
+          continue;
+        }
+        const key = productNameKey(slide.productName);
+        if (key) {
+          names.add(key);
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [...names];
 }
 
 function recordScheduledProductUsage(result: DraftResult, pkg: GeneratedPackage): void {
@@ -449,16 +505,8 @@ function recordScheduledProductUsage(result: DraftResult, pkg: GeneratedPackage)
 
 async function readImageVerifiedCatalog(): Promise<Awaited<ReturnType<typeof readBareCatalog>>> {
   const products = await readBareCatalog({ preferWithImages: false });
-  const positiveProducts = products.filter((product) => {
-    const text = `${product.brand} ${product.productName}`.toLowerCase();
-    return (
-      typeof product.score === "number" &&
-      product.score >= 55 &&
-      !/^avoid$/i.test(product.label) &&
-      SCREENSHOT_READY_PRODUCT_TERMS.some((term) => text.includes(term))
-    );
-  });
-  return filterProductsWithUsableImages(positiveProducts);
+  const scannableProducts = products.filter((product) => typeof product.score === "number" && !/📦/.test(product.productName));
+  return filterProductsWithUsableImages(scannableProducts);
 }
 
 async function buildOneDraft(
@@ -467,13 +515,15 @@ async function buildOneDraft(
   dryRun: boolean,
   index: number,
   excludeProductBarcodes: string[],
+  excludeProductNameKeys: string[],
   retryRejectedBarcodes: string[] = []
 ): Promise<DraftResult> {
-  const storeName = storeForDraft(index);
+  const forceAisleHero = process.env.CAROUSEL_HERO_MODE !== "storefront";
+  const storeName = forceAisleHero ? undefined : storeForDraft(index);
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= 6; attempt += 1) {
-    console.log(`Building draft ${index + 1} for ${slotDate.toISOString()} (${storeName}), attempt ${attempt}.`);
+    console.log(`Building draft ${index + 1} for ${slotDate.toISOString()} (${storeName ?? "aisle hero"}), attempt ${attempt}.`);
     const job = await createJob({
       url: "https://www.tiktok.com/@downloadbare",
       profile: defaultProfile
@@ -483,7 +533,8 @@ async function buildOneDraft(
       const excludedBarcodes = [...excludeProductBarcodes, ...retryRejectedBarcodes];
       const snapshot = await processJob(job.status.id, {
         useOpenAIImages: process.env.CAROUSEL_USE_OPENAI_IMAGES === "1",
-        forceStorefrontHero: true,
+        forceStorefrontHero: !forceAisleHero,
+        forceAisleHero,
         storeName,
         useStockHeroImages: true,
         useBareSimulatorScreenshots: true,
@@ -507,6 +558,7 @@ async function buildOneDraft(
       await assertCarouselReadyForUpload(pkg, images);
       assertAllowedProducts(pkg);
       assertNoExcludedProducts(pkg, excludedBarcodes);
+      assertNoExcludedProductNames(pkg, excludeProductNameKeys);
 
       if (dryRun) {
         return {
@@ -594,6 +646,7 @@ async function main(): Promise<void> {
   const apiKey = process.env.POSTIZ_API_KEY;
   const results: DraftResult[] = [];
   const usedProductBarcodes = new Set<string>(collectHistoricalProductBarcodes());
+  const usedProductNameKeys = new Set<string>(collectHistoricalProductNameKeys());
   const targetIntegrations: PostizIntegration[] = [];
   const reservedDates: Date[] = [];
   process.env.BARE_SCREENSHOT_HISTORY_FIRST ??= "1";
@@ -627,13 +680,22 @@ async function main(): Promise<void> {
       targetIntegrations,
       dryRun,
       scheduleIndex,
-      [...usedProductBarcodes]
+      [...usedProductBarcodes],
+      [...usedProductNameKeys]
     );
     results.push(result);
     reservedDates.push(new Date(result.date));
     const pkg = JSON.parse(readFileSync(path.join(result.jobDir, "package.json"), "utf8")) as GeneratedPackage;
     for (const barcode of (pkg.carouselSlides ?? []).flatMap((slide) => (slide.barcode ? [slide.barcode] : []))) {
       usedProductBarcodes.add(barcode);
+    }
+    for (const slide of pkg.carouselSlides ?? []) {
+      if (slide.kind === "product-photo") {
+        const key = productNameKey(slide.productName);
+        if (key) {
+          usedProductNameKeys.add(key);
+        }
+      }
     }
   }
 

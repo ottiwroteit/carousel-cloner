@@ -8,6 +8,7 @@ type BuildTrendPackageOptions = {
   random?: RandomFn;
   bareProducts?: BareProduct[];
   forceStorefrontHero?: boolean;
+  forceAisleHero?: boolean;
   storeName?: string;
 };
 
@@ -170,6 +171,44 @@ const GENERIC_GROCERY_HOOKS: HookFamily[] = [
     hookText: () => "Better grocery swaps this week",
     captionAngle: "better grocery swaps for the next grocery run",
     preferredScenes: ["Storefront", "Cart down aisle", "Seasonal display"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  }
+];
+
+const AISLE_SCAN_HOOKS: HookFamily[] = [
+  {
+    title: "labels-to-check",
+    hookText: () => "Grocery labels I would check this week",
+    captionAngle: "grocery labels worth checking before the next trip",
+    preferredScenes: ["Random grocery aisle", "Shelf wall", "Cart down aisle"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "scan-before-buying",
+    hookText: () => "Things I would scan before buying",
+    captionAngle: "grocery finds worth scanning before they go in your cart",
+    preferredScenes: ["Random grocery aisle", "Cart down aisle", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "aisle-finds",
+    hookText: () => "Aisle finds worth checking",
+    captionAngle: "grocery aisle finds worth checking with BARE",
+    preferredScenes: ["Random grocery aisle", "Shelf wall", "Full shopping cart"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "before-you-buy",
+    hookText: () => "Before you buy these, scan the label",
+    captionAngle: "packaged grocery finds worth checking before buying",
+    preferredScenes: ["Random grocery aisle", "Cart down aisle", "Shelf wall"],
+    strategy: STRATEGY_FORMATS.benefitAisleFinds
+  },
+  {
+    title: "cart-check",
+    hookText: () => "What I would check in the grocery aisle",
+    captionAngle: "grocery aisle picks worth comparing before checkout",
+    preferredScenes: ["Random grocery aisle", "Cart down aisle", "Full shopping cart"],
     strategy: STRATEGY_FORMATS.benefitAisleFinds
   }
 ];
@@ -440,15 +479,21 @@ export function buildTrendPackage({
   random = Math.random,
   bareProducts,
   forceStorefrontHero = false,
+  forceAisleHero = false,
   storeName: forcedStoreName
 }: BuildTrendPackageOptions = {}): GeneratedPackage {
   const useGenericStorefrontCopy = forceStorefrontHero && Boolean(forcedStoreName);
-  const selected = forceStorefrontHero
+  const selected = forceAisleHero
+    ? { hook: pick(AISLE_SCAN_HOOKS, random), occasion: undefined }
+    : forceStorefrontHero
     ? { hook: pick(useGenericStorefrontCopy ? GENERIC_GROCERY_HOOKS : STORE_HOOKS, random), occasion: undefined }
     : selectHook(now, random);
   const { hook, occasion } = selected;
-  const scene = forceStorefrontHero ? storefrontScene() : pickHeroScene(hook, random);
-  const storeName = forcedStoreName ?? (scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined);
+  const aisleScenes = HERO_SCENES.filter((sceneOption) =>
+    ["Random grocery aisle", "Shelf wall", "Cart down aisle", "Full shopping cart"].includes(sceneOption.title)
+  );
+  const scene = forceAisleHero ? pick(aisleScenes, random) : forceStorefrontHero ? storefrontScene() : pickHeroScene(hook, random);
+  const storeName = forceAisleHero ? undefined : forcedStoreName ?? (scene.storeRequired || STORE_HOOKS.includes(hook) ? pick(STORES, random) : undefined);
   const copyStoreName = useGenericStorefrontCopy ? undefined : storeName;
   const hookText = hook.hookText(copyStoreName, occasion);
   const products = bareProducts?.slice(0, 3).map(productFromBare) ?? [];

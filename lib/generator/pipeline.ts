@@ -27,6 +27,7 @@ type ProcessJobOptions = {
   hasOpenAIKey?: boolean;
   useOpenAIImages?: boolean;
   forceStorefrontHero?: boolean;
+  forceAisleHero?: boolean;
   storeName?: string;
   useStockHeroImages?: boolean;
   useBareSimulatorScreenshots?: boolean;
@@ -48,6 +49,14 @@ const GENERIC_GROCERY_HERO_IMAGES = [
   "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1400&q=85",
   "https://images.unsplash.com/photo-1601599561213-832382fd07ba?auto=format&fit=crop&w=1400&q=85",
   "https://images.unsplash.com/photo-1586907835000-f692bbd4c9e0?auto=format&fit=crop&w=1400&q=85"
+];
+
+const AISLE_GROCERY_HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1601599561213-832382fd07ba?auto=format&fit=crop&w=1400&q=88",
+  "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1400&q=88",
+  "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?auto=format&fit=crop&w=1400&q=88",
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1400&q=88",
+  "https://images.unsplash.com/photo-1568254183919-78a4f43a2877?auto=format&fit=crop&w=1400&q=88"
 ];
 
 const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
@@ -95,12 +104,18 @@ function stableHeroIndex(seed: string, poolLength: number): number {
   return poolLength ? hash % poolLength : 0;
 }
 
-async function downloadStockHeroImage(jobDir: string, index: number, storeName?: string, title?: string): Promise<string> {
+async function downloadStockHeroImage(
+  jobDir: string,
+  index: number,
+  storeName?: string,
+  title?: string,
+  forceAisleHero = false
+): Promise<string> {
   const generatedDir = path.join(jobDir, "generated");
   await mkdir(generatedDir, { recursive: true });
   const storeImages = REAL_STORE_HERO_IMAGES[normalizeStoreKey(storeName) ?? ""];
-  const imagePool = storeImages?.length ? storeImages : FALLBACK_REAL_STORE_HERO_IMAGES;
-  const seed = `${path.basename(jobDir)}:${storeName ?? "generic"}:${title ?? ""}:${index}`;
+  const imagePool = forceAisleHero ? AISLE_GROCERY_HERO_IMAGES : storeImages?.length ? storeImages : FALLBACK_REAL_STORE_HERO_IMAGES;
+  const seed = `${path.basename(jobDir)}:${forceAisleHero ? "aisle" : storeName ?? "generic"}:${title ?? ""}:${index}`;
   const sourceUrl = imagePool[stableHeroIndex(seed, imagePool.length)];
   const response = await fetchWithCurlFallback(sourceUrl);
   if (!response.ok) {
@@ -127,7 +142,8 @@ async function generateLocalImagesWithRealProducts(
   snapshot: JobSnapshot,
   pkg: ReturnType<typeof buildTrendPackage>,
   findProductImage: typeof findWebProductImage,
-  useStockHeroImages = false
+  useStockHeroImages = false,
+  forceAisleHero = false
 ): Promise<{ generatedImages: string[]; productSources: WebProductImage[] }> {
   const generatedDir = path.join(snapshot.dir, "generated");
   await mkdir(generatedDir, { recursive: true });
@@ -164,7 +180,7 @@ async function generateLocalImagesWithRealProducts(
       if (!useStockHeroImages) {
         throw new Error("Stock hero images disabled.");
       }
-      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName, slide.title);
+      const heroSource = await downloadStockHeroImage(snapshot.dir, slideNumber, slide.storeName, slide.title, forceAisleHero);
       generatedImages.push(
         await composeHeroImage({
           jobDir: snapshot.dir,
@@ -259,6 +275,7 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
   let generated = buildTrendPackage({
     bareProducts: catalogProducts,
     forceStorefrontHero: options.forceStorefrontHero,
+    forceAisleHero: options.forceAisleHero,
     storeName: options.storeName
   });
   const hasOpenAIKey = options.hasOpenAIKey ?? Boolean(process.env.OPENAI_API_KEY);
@@ -349,7 +366,8 @@ export async function processJob(id: string, options: ProcessJobOptions = {}): P
           snapshot,
           generated,
           webProductImageFinder,
-          options.useStockHeroImages
+          options.useStockHeroImages,
+          options.forceAisleHero
         );
         generated = attachGeneratedImagesToSlides(generated, generatedImages);
         await writeJobArtifact(

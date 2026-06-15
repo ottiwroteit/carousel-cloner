@@ -198,6 +198,15 @@ function labelsMatchProductDetail(labels: string[], productName?: string): boole
   return required.every((word) => screenText.includes(word));
 }
 
+function labelsIndicateProductDetail(labels: string[]): boolean {
+  const rawScreenText = labels.join(" ").toLowerCase();
+  return (
+    rawScreenText.includes("health breakdown") &&
+    (rawScreenText.includes("add to cupboard") || rawScreenText.includes("ingredients")) &&
+    /\b(avoid|limit|good|excellent)\b/.test(rawScreenText)
+  );
+}
+
 function parseHistoryProduct(label: string): BareHistoryProduct | null {
   const match = label.match(/^(.+),\s*([^,]+),\s*(\d{1,3})$/);
   if (!match) {
@@ -502,7 +511,8 @@ export async function captureBareProductScreenshot({
     await screenshot(simulatorId, rawPath);
     const labels = await axeLabels(axePath, udid);
     const hasProductDetail = await hasProductDetailSheet(rawPath);
-    if (hasProductDetail && (!strictProductText || labelsMatchProductDetail(labels, productName))) {
+    const hasBareDetailLabels = labelsIndicateProductDetail(labels);
+    if ((hasProductDetail || hasBareDetailLabels) && (!strictProductText || labelsMatchProductDetail(labels, productName))) {
       await normalizeScreenshot(rawPath, outputPath);
       return true;
     }
