@@ -101,9 +101,7 @@ const AISLE_GROCERY_HERO_IMAGES = [
   "https://unsplash.com/photos/sq5P00L7lXc/download?force=true&w=1600",
   "https://unsplash.com/photos/IC4k78J91lY/download?force=true&w=1600",
   "https://unsplash.com/photos/pDwIGDpWmnE/download?force=true&w=1600",
-  "https://unsplash.com/photos/eFVToUaCFCA/download?force=true&w=1600",
-  "https://upload.wikimedia.org/wikipedia/commons/1/14/Sprouts_Farmers_Market%2C_West_Melbourne%2C_Florida.jpg",
-  "https://upload.wikimedia.org/wikipedia/commons/0/04/Walmart_exterior.jpg"
+  "https://unsplash.com/photos/eFVToUaCFCA/download?force=true&w=1600"
 ];
 
 const REAL_STORE_HERO_IMAGES: Record<string, string[]> = {
